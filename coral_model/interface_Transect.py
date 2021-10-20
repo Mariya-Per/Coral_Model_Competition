@@ -11,12 +11,12 @@ cwd = os.getcwd()
 from coral_model.core import Coral
 from coral_model.loop import Simulation
 
-base_dir = os.path.join('C:\\','Users','herman', 'OneDrive - Stichting Deltares',
-                        'Documents','PyProjects','Mariya_model')
+base_dir = os.path.join('C:\\','Users','perepely', 'Coral_model',
+                        'Ratios')
 # define the basic Simulation object, indicating already here the type of hydrodynamics
 runTrans = Simulation(mode='Transect')
 # set the working directory and its subdirectories (input, output, figures)
-runTrans.set_directories(os.path.join(base_dir,'Run_Transect'))
+runTrans.set_directories(os.path.join(base_dir,'Run19_10'))
 # read the input file with parameters (processes, parameters,constants, now all in "constants")
 runTrans.read_parameters(file='coral_input.txt',folder=runTrans.input_dir)
 # environment definition
