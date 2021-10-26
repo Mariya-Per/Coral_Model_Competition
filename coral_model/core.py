@@ -18,7 +18,7 @@ RESHAPE = DataReshape()
 class Coral:
     """Coral object, representing one coral type."""
 
-    def __init__(self, constants,dc, hc, bc, tc, ac, species_constant=1):
+    def __init__(self, constants,dc, hc, bc, tc, ac, species_constant):
         """
         :param dc: diameter coral plate [m]
         :param hc: coral height [m]
@@ -439,13 +439,13 @@ class Flow:
             if in_canopy:
                 idx = coral.volume > 0
                 for i in idx:
-                    alpha_w[i] = self.wave_attenuation(
+                    alpha_w[i] = self.wave_attenuation(self.constants,
                         coral.dc_rep[i], coral.hc[i], coral.ac[i],
-                        self.uw[i], self.Tp[i], self.h[i], 'wave'
+                        self.uw[i], self.Tp[i], self.h[i], wac_type = 'wave'
                     )
-                    alpha_c[i] = self.wave_attenuation(
+                    alpha_c[i] = self.wave_attenuation(self.constants,
                         coral.dc_rep[i], coral.hc[i], coral.ac[i],
-                        self.uc[i], 1e3, self.h[i], 'current'
+                        self.uc[i], 1e3, self.h[i], wac_type = 'current'
                     )
             coral.ucm = self.wave_current(alpha_w, alpha_c)
             coral.um = self.wave_current()
@@ -1065,13 +1065,13 @@ class Morphology:
         """
         self.__coral_object_checker(coral)
         
-        self.__rs_optimal = 0.5/np.sqrt(2.0) * 0.25
+        # self.__rs_optimal = 0.5/np.sqrt(2.0) * 0.25
 
-        # self.__rs_optimal = self.constants.prop_space * (
-        #         1. - np.tanh(self.constants.prop_space_light * 
-        #                      coral.light.mean(axis=1) / self.I0.mean(axis=1))
-        # ) * (1. + np.tanh(self.constants.prop_space_flow * 
-        #                   (coral.ucm - self.constants.u0) / self.constants.u0))
+        self.__rs_optimal = self.constants.prop_space * (
+            1. - np.tanh(self.constants.prop_space_light * 
+                              coral.light.mean(axis=1) / self.I0.mean(axis=1))
+         ) * (1. + np.tanh(self.constants.prop_space_flow * 
+                           (coral.ucm - self.constants.u0) / self.constants.u0))
 
     def delta_volume(self, coral):
         """

@@ -16,7 +16,7 @@ base_dir = os.path.join('C:\\','Users','perepely', 'Coral_model',
 # define the basic Simulation object, indicating already here the type of hydrodynamics
 runTrans = Simulation(mode='Transect')
 # set the working directory and its subdirectories (input, output, figures)
-runTrans.set_directories(os.path.join(base_dir,'Run19_10'))
+runTrans.set_directories(os.path.join(base_dir,'Run_26_10_massive2'))
 # read the input file with parameters (processes, parameters,constants, now all in "constants")
 runTrans.read_parameters(file='coral_input.txt',folder=runTrans.input_dir)
 # environment definition
@@ -40,7 +40,8 @@ print(runTrans.hydrodynamics.settings)
 runTrans.define_output('map', fme=False)
 runTrans.define_output('his', fme=False)
 # initiate coral
-coral = Coral(runTrans.constants,.1, .1, .05, .05, .2, 1.)
+coral = Coral(runTrans.constants,.125, .125, .1, .1, .2, 0.8)
+
 coral = runTrans.initiate(coral)
 # simulation
 runTrans.exec(coral)

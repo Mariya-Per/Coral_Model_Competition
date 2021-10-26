@@ -63,7 +63,7 @@ kappaA = .66236107      # .66236107 ! modified Michaelis-Menten half-rate coeffi
 #
 # morphological development
 rf = 1.0                # 1.0       ! form ratio height to diameter [-]
-rp = 1.0                # 1.0       ! plate ratio base to top diameter [-] 
+rp = 0.8                # 0.8       ! plate ratio base to top diameter [-] 
 
 prop_form = .1          # .1        ! overall form proportionality constant [-]
 prop_plate = .5         # .5        ! overall plate proportionality constant [-
@@ -72,7 +72,7 @@ prop_space = .5         # .5/np.sqrt(2.) ! overall space proportionality constan
 prop_space_light = .1   # .1      ! light space proportionality constant [-]
 prop_space_flow = .1    # .1        ! flow space proportionality constant [-]
 u0 = .2                 # .2        ! base-line flow velocity [m s-1]
-rho_c = 1600.           # 1600.     ! density of coral [kg m-3]
+rho_c = 1435.           # 1435.     ! density of coral [kg m-3]
 #
 # dislodgement criterion
 sigma_t = 2e5           # 2e5       ! tensile strength of substratum [N m-2]
