@@ -18,7 +18,7 @@ RESHAPE = DataReshape()
 class Coral:
     """Coral object, representing one coral type."""
 
-    def __init__(self, constants,dc, hc, bc, tc, ac, species_constant):
+    def __init__(self, constants,dc, hc, bc, tc, ac, species_constant=1):
         """
         :param dc: diameter coral plate [m]
         :param hc: coral height [m]
@@ -439,13 +439,13 @@ class Flow:
             if in_canopy:
                 idx = coral.volume > 0
                 for i in idx:
-                    alpha_w[i] = self.wave_attenuation(self.constants,
+                    alpha_w[i] = self.wave_attenuation(
                         coral.dc_rep[i], coral.hc[i], coral.ac[i],
-                        self.uw[i], self.Tp[i], self.h[i], wac_type = 'wave'
+                        self.uw[i], self.Tp[i], self.h[i], 'wave'
                     )
-                    alpha_c[i] = self.wave_attenuation(self.constants,
+                    alpha_c[i] = self.wave_attenuation(
                         coral.dc_rep[i], coral.hc[i], coral.ac[i],
-                        self.uc[i], 1e3, self.h[i], wac_type = 'current'
+                        self.uc[i], 1e3, self.h[i], 'current'
                     )
             coral.ucm = self.wave_current(alpha_w, alpha_c)
             coral.um = self.wave_current()
@@ -720,7 +720,7 @@ class Photosynthesis:
             raise NotImplementedError(msg)
 
         # # calculations
-        self.pld = p_max * (np.tanh(coral.light / ik) - np.tanh(self.constants.Icomp * self.I0 / ik))
+        self.pld = np.clip(p_max * (np.tanh(coral.light / ik) - np.tanh(0.01 * self.I0 / ik)),0.,1.)
     
 
     def thermal_dependency(self, coral, env, year):
@@ -1018,14 +1018,12 @@ class Morphology:
         :type coral: Coral
         """
         self.__coral_object_checker(coral)
-        
-        rf = self.constants.rf
-        
-        # rf = self.constants.prop_form * (coral.light.mean(axis=1) / 
-        #                                  self.I0.mean(axis=1)) * (self.constants.u0 / 1e-6)
-        # rf[coral.ucm > 0] = self.constants.prop_form * (
-        #         coral.light.mean(axis=1)[coral.ucm > 0] / self.I0.mean(axis=1)[coral.ucm > 0]
-        # ) * (self.constants.u0 / coral.ucm[coral.ucm > 0])
+
+        rf = self.constants.prop_form * (coral.light.mean(axis=1) / 
+                                         self.I0.mean(axis=1)) * (self.constants.u0 / 1e-6)
+        rf[coral.ucm > 0] = self.constants.prop_form * (
+                coral.light.mean(axis=1)[coral.ucm > 0] / self.I0.mean(axis=1)[coral.ucm > 0]
+        ) * (self.constants.u0 / coral.ucm[coral.ucm > 0])
         self.__rf_optimal = rf
 
     @property
@@ -1043,11 +1041,10 @@ class Morphology:
         :type coral: Coral
         """
         self.__coral_object_checker(coral)
-        self.__rp_optimal = self.constants.rp
 
-        # self.__rp_optimal = self.constants.prop_plate * (
-        #         1. + np.tanh(self.constants.prop_plate_flow * (coral.ucm - self.constants.u0) / self.constants.u0)
-        # )
+        self.__rp_optimal = self.constants.prop_plate * (
+                1. + np.tanh(self.constants.prop_plate_flow * (coral.ucm - self.constants.u0) / self.constants.u0)
+        )
 
     @property
     def rs_optimal(self):
@@ -1064,14 +1061,12 @@ class Morphology:
         :type coral: Coral
         """
         self.__coral_object_checker(coral)
-        
-        # self.__rs_optimal = 0.5/np.sqrt(2.0) * 0.25
 
         self.__rs_optimal = self.constants.prop_space * (
-            1. - np.tanh(self.constants.prop_space_light * 
-                              coral.light.mean(axis=1) / self.I0.mean(axis=1))
-         ) * (1. + np.tanh(self.constants.prop_space_flow * 
-                           (coral.ucm - self.constants.u0) / self.constants.u0))
+                1. - np.tanh(self.constants.prop_space_light * 
+                             coral.light.mean(axis=1) / self.I0.mean(axis=1))
+        ) * (1. + np.tanh(self.constants.prop_space_flow * 
+                          (coral.ucm - self.constants.u0) / self.constants.u0))
 
     def delta_volume(self, coral):
         """
