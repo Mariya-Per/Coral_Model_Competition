@@ -14,12 +14,164 @@ from coral_model.utils import DataReshape, CoralOnly
 # # data formatting -- to be reformatted in the model simulation
 RESHAPE = DataReshape()
 
+
+class Group_parameters(self):
+    
+    def __init__(self):
+        
+        coral related parameters here
+        
+         # photosynthetic light dependency
+        self.iota =  None
+        self.ik_max =  None
+        self.pm_max =  None
+        self.rETR_max_qss = None
+        self.beta_rETR = None
+        self.betaI = None
+        self.betaP =  None
+        self.Icomp = None
+        self.phi = None
+        self.alpha = None
+        
+        etc etc 
+        
+        
+    def read_it(self,inp_file):        
+        self.inpfile=inp_file
+            
+        keyvals={}
+        with open(self.inpfile) as f:
+            for line in f:
+                if(len(line)>1):
+                    linee = line
+                    if (line.count("#")>0):
+                        linee,dum = line.split ("#")
+                    if(len(linee)>0):
+                        name, value = linee.split("=")
+                        value=value.lower().strip()
+                        try:
+                            keyvals[name.strip()] = float(value)
+                        except (ValueError):
+                            keyvals[name.strip()]=bool(du.strtobool(value))
+
+        def default(x, default_value):
+            """Set default value if no custom value is provided."""
+            xx = keyvals.get(x)
+            if (xx is None):
+                xx = default_value
+            return xx
+
+        # Processes
+        self.fme = default ("fme",False) 
+        self.tme = default ("tme",False)
+        self.pfd = default ("pfd",False)
+        self.warn_proc = default("warn_proc",True)
+        
+        # light micro-environment
+        self.Kd0 = default("Kd0", .1)
+        self.theta_max = default("theta_max", .5) * np.pi
+        self.coral_Kd_1 = default("coral_Kd_1", 0.)    
+        self.coral_Kd_2 = default("coral_Kd_2", 0.)      
+
+        # flow micro-environment
+        self.Cs = default("Cs", .17)
+        self.Cm = default("Cm", 1.7)
+        self.Cf = default("Cf", .01)
+        self.nu = default("nu", 1e-6)
+        self.alpha = default("alpha", 1e-7)
+        self.psi = default("psi", 2)
+        self.wcAngle = default("wcAngle", 0.)
+        self.rd = default("rd", 500)
+        self.numericTheta = default("numericTheta", .5)
+        self.err = default("err", 1e-3)
+        self.maxiter_k = int(default("maxiter_k", 1e5))
+        self.maxiter_aw = int(default("maxiter_aw", 1e5))
+        self.alpha_w = default("alpha_w", 1.0)
+        self.alpha_c =default("alpha_c", 1.0)
+
+        # thermal micro-environment
+        self.K0 = default("K0", 80.)
+        self.ap = default("ap", .4)
+        self.k = default("k", .6089)
+
+        # photosynthetic light dependency
+        self.iota = default("iota", .6)
+        self.ik_max = default("ik_max", 372.32)
+        self.pm_max = default("pm_max", 1.)
+        self.rETR_max_qss = default("rETTR_max_qss", 70.0)
+        self.beta_rETR = default("beta_rETR", 0.09)  
+        self.betaI = default("betaI", .34)
+        self.betaP = default("beta_P", .09)
+        self.Icomp = default("Icomp", .01)
+        self.phi = default("phi", 0.05)
+        self.alpha = default("alpha", 0.2)
+
+        # photosynthetic thermal dependency
+        self.Ea = default("Ea", 6e4)
+        self.R = default("R", 8.31446261815324)
+        self.k_var = default("k_var", 2.45)
+        self.nn = default("nn", 60)
+
+        # photosynthetic flow dependency
+        self.pfd_min = default("pfd_min", .68886964)
+        self.ucr = default("ucr", .5173)
+
+        # population dynamics
+        self.r_growth = default("r_growth", .002)
+        self.r_recovery = default("r_recovery", .2)
+        self.r_mortality = default("r_mortality", .04)
+        self.r_bleaching = default("r_bleaching", 8.)
+
+        # calcification
+        self.gC = default("gC", .5)
+        self.omegaA0 = default("omegaA0", 5.)
+        self.omega0 = default("omega0", .14587415)
+        self.kappaA = default("kappaA", .66236107)
+
+        # morphological development
+        
+        self.dc_pa_coef = default ("dc_pa_coef", 0.5557)
+        self.dc_pa_exp = default ("dc_pa_exp", 1.9458)
+
+        self.pa_vol_coef= default ("pa_vol_coef", 0.2589)
+        self.pa_vol_exp= default ("pa_vol_exp", 1.4482)
+        
+        self.sa_dc_coef = default ("sa_dc_coef", 1.6785) 
+        self.sa_dc_exp = default("sa_dc_exp", 1.8841)
+        
+        self.rf = default("rf", 1.0)
+        self.rp = default("rp", 1.0)
+        self.prop_form = default("prop_form", .1)
+        self.prop_plate = default("prop_plate", .5)
+        self.prop_plate_flow = default("prop_plate_flow", .1)
+        self.prop_space = default("prop_space", .5) / np.sqrt(2.)
+        self.prop_space_light = default("prop_space_light", .1)
+        self.prop_space_flow = default("prop_space_flow", .1)
+        self.u0 = default("u0", .2)
+        self.rho_c = default("rho_c", 1600.)
+
+        # dislodgement criterion
+        self.sigma_t = default("sigma_t", 2e5)
+        self.Cd = default("Cd", 1.)
+        self.rho_w = default("rho_w", 1025.)
+
+        # coral recruitment
+        self.no_larvae = default("no_larvae", 1e6)
+        self.prob_settle = default("prob_settle", 1e-4)
+        self.d_larvae = default("d_larvae", 1e-3)
+        
+        # check processes for consistency
+        self.check_processes    
+
 # coral object
 class Coral:
     """Coral object, representing one coral type."""
 
-    def __init__(self, constants, cor_type,dc, hc, bc, tc, ac, species_constant):
+    def __init__(self, constants, cor_const, dc, hc, bc, tc, ac, species_constant):
         """
+        :constants: generic model parameters
+        :cor_const: list of group-specific constants, required for simulation
+        
         :param dc: diameter coral plate [m]
         :param hc: coral height [m]
         :param bc: diameter coral base [m]
@@ -39,6 +191,7 @@ class Coral:
 #        reproduce - data available in CTDb in terms of planar area
 # =============================================================================
         self.constants = constants
+        self.cor_const = Group_parameters()
 
         self.dc = RESHAPE.variable2array(dc)
         self.hc = RESHAPE.variable2array(hc)
@@ -334,7 +487,9 @@ class Massive(Coral):
     Here some class-specific functions can be added. """
     def __init__(self):
             super().__init__()
-            
+     make class Coral read coral-specific input file by default, then here I call for massive-specific file 
+similar as read_it function, all the parameters have to be initialised and read by Coral   ;
+can also write down default values and warning for missing value     
 
 class Branching(Coral):
     """ Class of Branching corals. Inherits all the properties of class Coral"""
@@ -1109,7 +1264,8 @@ class PopulationStates:
                 1. - .25 * self.dt * self.constants.r_bleaching * ps[ps <= 0.] * coral.Csp
         )
 
-        # # check on carrying capacity
+        # # check on carrying capacity - take out of the pop states and put into the canopy space checker 
+                             
         if any(p.sum(axis=1) > 1.0001 * coral.cover):
             slot_1 = np.arange(len(coral.cover))[p.sum(axis=1) > 1.0001 * coral.cover]
             slot_2 = p[p.sum(axis=1) > 1.0001 * coral.cover]
@@ -1507,6 +1663,12 @@ class Recruitment:
     def __init__(self, constants):
         """Recruitment initialize"""
         self.constants = constants
+        
+        # may become a simple function of Canopy coral and as a fraction of free space available
+        
+        addition of volume of 1 sexually-reproducable coral (5 cm diameter) 
+        
+        
 
     def update(self, coral):
         """Update coral cover / volume after spawning event.

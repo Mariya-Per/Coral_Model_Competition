@@ -128,7 +128,7 @@ class Simulation:
         if not os.path.exists(self.figures_dir):
             os.mkdir(self.figures_dir)
     
-    def read_parameters(self, file='coral_input.txt',folder=None) :
+    def read_parameters(self, file='model_input.txt',folder=None) : #keep as default only for generic model parameters
         ddir = self.input_dir if folder is None else folder
         infil = os.path.join(ddir,file)
         self._constants.read_it(infil)
@@ -268,6 +268,12 @@ class Simulation:
                 # if-statement that encompasses all for which the hydrodynamic should be used
                 progress.set_postfix(inner_loop=f'update {self.hydrodynamics}')
                 current_vel, wave_vel, wave_per = self.hydrodynamics.update(coral, stormcat=0)
+                
+                coral_sim = canopy0.coral_potential(coral, constants, year=years[i]) # here I specify the group-specific coral simulation, where time will be 
+                # specified as the progress years[i]
+                
+                
+                
 
                 # # environment
                 progress.set_postfix(inner_loop='coral environment')

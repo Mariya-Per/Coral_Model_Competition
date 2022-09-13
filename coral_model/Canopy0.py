@@ -42,74 +42,28 @@ class Canopy:
         
         # subclasses with processes as classes with their functions
         
-
-class Competition:
-    
-    """ Contains all the processes and functions, related to spatial competition
-    between coral functional groups."""
-    
-    def __init__(self):
-        
-        """ For initialisation, I need amount of groups, entering the competition, 
-        space available"""
-        
-        
-    def space_checker (self,canopy, massive, branching):
-        """ Checks whether there is space available for coral development or 
-        spatial mortality should be enabled."""
-        
-        # Should I call here just (self, canopy, coral), or specify the call towards the 2 coral groups I have? 
-        
-        def area_occupied (self, coral):
-            """ Total area (planar view), occupied by a single coral group. """
-            
-            # same here, do I need to specify the call, or as both groups inherit the properties, I can
-            # keep these functions generic? 
-            
-            planar_area = coral.planar_area 
-            
-            pop_den = coral.pop_den 
-            
-            area_occ = planar_area * pop_den
-            
-            return area_occ
-            
-            
-        area_massive = self.area_occupied(Massive)
-        
-        area_branching = self.area_occupied(Branching)
-        
-        total_occupied = area_massive + area_branching
-        
-        if total_occupied <= size_cell: # size_cell stands for total space available for occupation
-            pass
-        else:
-            print ("Potential coral cover higher than space available. Spatial competition enabled.")
-            call for competition function  
+ 
         
        
-class Coral_simulation (self, coral, canopy):
-    """ All the functions to calculate coral potential production, competition and model output 
-    are specified here"""
-    
-    def __init__(self):
-        
-        # parameters and properties needed to run the loop
-        
-        # coral specific input check here 
-        
-        # outut specification and directories 
+
         
         
             1. inner loop - coral physiology
         lme (light micro-environment) is affected by presence of branching coral, because then
         less light can go through the angle or reflecton off the sediment - side-effect LAC    
         
-    def coral_potential (self, coral):
+    def coral_potential (self, coral, coral_constants, year):
         
         """ This function calls for all the coral development processes and calculates 
         potential biomass production by the end of the year""" 
         
+        self.lme = Light(
+                    constants=self.constants,
+                    light_in=time_series_year(self.environment.light, year),
+                    lac=time_series_year(self.environment.light_attenuation, year),
+                    depth=self.hydrodynamics.water_depth
+                )
+                lme.rep_light(coral)
         
         
         
@@ -227,4 +181,42 @@ class Coral_simulation (self, coral, canopy):
         
         5. write output file and return info to the next timestep
         
-    
+    def coral_competition():
+        
+        """ Contains all the processes and functions, related to spatial competition
+        between coral functional groups."""
+        
+            
+            
+        def space_checker (self,canopy, massive, branching):
+            """ Checks whether there is space available for coral development or 
+            spatial mortality should be enabled."""
+            
+            # Should I call here just (self, canopy, coral), or specify the call towards the 2 coral groups I have? 
+            
+            def area_occupied (self, coral):
+                """ Total area (planar view), occupied by a single coral group. """
+                
+                # same here, do I need to specify the call, or as both groups inherit the properties, I can
+                # keep these functions generic? 
+                
+                planar_area = coral.planar_area 
+                
+                pop_den = coral.pop_den 
+                
+                area_occ = planar_area * pop_den
+                
+                return area_occ
+                
+                
+            area_massive = self.area_occupied(Massive)
+            
+            area_branching = self.area_occupied(Branching)
+            
+            total_occupied = area_massive + area_branching
+            
+            if total_occupied <= size_cell: # size_cell stands for total space available for occupation
+                pass
+            else:
+                print ("Potential coral cover higher than space available. Spatial competition enabled.")
+                call for competition function     

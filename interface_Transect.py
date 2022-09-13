@@ -21,7 +21,7 @@ runTrans = Simulation(mode='Transect')
 # set the working directory and its subdirectories (input, output, figures)
 runTrans.set_directories(os.path.join(base_dir,'Run12_08'))
 # read the input file with parameters (processes, parameters,constants, now all in "constants")
-runTrans.read_parameters(file='coral_input.txt',folder=runTrans.input_dir)
+runTrans.read_parameters(file='model_input.txt',folder=runTrans.input_dir)
 # environment definition
 runTrans.environment.from_file('light', 'TS_PAR.txt',folder=runTrans.input_dir)
 runTrans.environment.from_file('temperature', 'TS_SST.txt',folder=runTrans.input_dir)

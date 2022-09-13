@@ -1,0 +1,52 @@
+# Key = value           ! Default   ! Definition [units]
+#--------------------------------------------------------------------------------------------------------------------
+# Light attenuation
+coral_Kd_1 = 0.         #  0.0      ! constant within-colony light-attenuation coefficient, lit side (0.0 for massive, add value for branching)
+coral_Kd_2 = 0.         #  0.       ! constant within-colony light-attenuation coefficient, strongly shaded side (0.0 for massive, add value for branching)
+#
+# photosynthetic light dependency
+iota = .6               # .6        ! photo-acclimation rate [d-1]
+ik_max = 372.32         # 372.32    ! maximum quasi steady-state saturation light-intensity [umol photons m-2 s-1]
+pm_max = 1.             #  1.       ! maximum quasi steady-state maximum photosynthetic efficiency [-]
+rETR_max_qss = 70.0     # 70.0      ! maximum quasi steady-state maximum relative electron transport rate [-]
+beta_rETR = 0.09        # 0.09      ! exponent of the quasi steady-state maximum relative electron transport rate [-]  
+betaI = .34             # .34       ! exponent of the quasi steady-state saturation light-intensity [-]
+betaP = .09             # .09       ! exponent of the quasi steady-state maximum photosynthetic efficiency [-]
+Icomp = .05             # .01       ! fraction of I0 at compensation point [-]
+phi = 0.05              # 0.05      ! Photoinhibition coefficient, defines the slope of photosynthetic efficiency reduction [-]
+alpha = 0.2             # 0.2       ! Initial slope of photosynthetic curve until reaching the compensation point [-]
+#
+# population dynamics
+r_growth = .002         # 0.002     ! growth rate [d-1]
+r_recovery = .2         # .2        ! recovery rate [d-1]
+r_mortality = .04       # .04       ! mortality rate [d-1]
+r_bleaching =  8.       # 8.        ! bleaching rate [d-1]
+#
+# morphological development
+#
+dc_pa_coef = 0.5557     # 0.5557     ! Coefficient for diameter - planar area relationship
+dc_pa_exp = 1.945       # 1.9458     ! Exponent for diameter - planar area relationship
+#
+pa_vol_coef= 0.2589     # 0.2589     ! Coefficient for planar area - volume relationship
+pa_vol_exp= 1.4482      # 1.4482     ! Exponent for the planar area - volume relationship 
+#
+sa_dc_coef = 1.6785     # 1.6785    ! Coefficient for surface area - diameter relationship
+sa_dc_exp = 1.8841      # 1.8841    ! Exponent for surface area - diameter relationship
+#
+rf = 1.0                # 1.0       ! form ratio height to diameter [-]
+rp = 0.8                # 0.8       ! plate ratio base to top diameter [-] 
+#
+prop_form = .1          # .1        ! overall form proportionality constant [-]
+prop_plate = .5         # .5        ! overall plate proportionality constant [-
+prop_plate_flow = .1    # .1        !  flow plate proportionality constant [-]
+prop_space = .5         # .5/np.sqrt(2.) ! overall space proportionality constant [-]
+prop_space_light = .1   # .1      ! light space proportionality constant [-]
+prop_space_flow = .1    # .1        ! flow space proportionality constant [-]
+#
+u0 = .2                 # .2        ! base-line flow velocity [m s-1]
+rho_c = 1435.           # 1435.     ! density of coral [kg m-3]
+#
+# coral recruitment
+no_larvae = 1e6         # 1e6       ! number of larvae released during mass spawning event [-]
+prob_settle = 1e-4      # 1e-4      ! probability of settlement [-]
+d_larvae = 1e-3         # 1e-3      ! larval diameter [m]
