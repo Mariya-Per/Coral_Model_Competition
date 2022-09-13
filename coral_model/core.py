@@ -18,7 +18,7 @@ RESHAPE = DataReshape()
 class Coral:
     """Coral object, representing one coral type."""
 
-    def __init__(self, constants,dc, hc, bc, tc, ac, species_constant):
+    def __init__(self, constants, cor_type,dc, hc, bc, tc, ac, species_constant):
         """
         :param dc: diameter coral plate [m]
         :param hc: coral height [m]
@@ -34,6 +34,10 @@ class Coral:
         :type ac: float, list, tuple, numpy.ndarray
         :type species_constant: float
         """
+# =============================================================================
+#         With initialisation set minimum dimensions of corals that can already
+#        reproduce - data available in CTDb in terms of planar area
+# =============================================================================
         self.constants = constants
 
         self.dc = RESHAPE.variable2array(dc)
@@ -44,12 +48,12 @@ class Coral:
 
         self.Csp = species_constant #make into the constants list
 
-        self._cover = None
+        self._cover = None  # check what does it mean exactly here 
 
         # initiate environmental working objects
         # > light micro-environment
         self.light = None
-        self.Bc = None
+        #self.Bc = None
         # > flow micro-environment
         self.ucm = None
         self.um = None
@@ -66,7 +70,7 @@ class Coral:
         self.p0 = None
         # np.array([
         #     self.cover, np.zeros(self.cover.shape), np.zeros(self.cover.shape), np.zeros(self.cover.shape),
-        # ])
+        # ])  # What was this and why is it commented out? - creating the p0 array ith the population states as 0s, but why is it disabled
         # > calcification
         self.calc = None
 
@@ -98,22 +102,58 @@ class Coral:
     def rs(self):
         """Spacing ratio: diameter-to-axial distance ratio."""
         return self.dc / self.ac
+    
+    @property
+    def planar_area(self):
+        """Planar area of the coral.
+        Can be assigned from:
+            1) the map - check how to do it
+            2) dependant on diameter """
+    
+        # for now I will make only the diameter dependency
+        planar_area = self.constants.dc_pa_coef * ((self.dc)** self.constants.dc_pa_exp) 
+        return planar_area 
+    
+    @property
+    def surface_area(self):
+        """Active area of the coral. Basically, its surface area"""
+        
+        SA = self.constants.sa_dc_coef * (self.dc ** self.constants.sa_dc_exp)
+        return SA
 
+    
     @property
     # changed the volume function - assigned the output coral_volume
+    
+    #change recalculation based on the planar area - volume or diameter volume relationship - Check this statement,
+    # maybe it is better to have both and one updates/recalculates another? As for branching coral we have volume
+    # between branches, filled with water, so cannot be directly related to just geomentry
+    
     def volume(self):
         """Coral volume."""
-        coral_volume = .25 * np.pi * ((self.hc - self.tc) * self.bc ** 2 + self.tc * self.dc ** 2)
+        # coral_volume = .25 * np.pi * ((self.hc - self.tc) * self.bc ** 2 + self.tc * self.dc ** 2)
+        coral_volume = self.constants.pa_vol_coef * ((self.planar_area)**self.constants.pa_vol_exp)
         return coral_volume
 
     @volume.setter # what is the difference? And which volume does it call then? 
-    # also function update morphology does not update coral volume 
+    # also function update morphology does not update coral volume - was disabled last year, subject of check - it does
+    
+    # NOTE: 
+    # What was not changed but needs a lot of attention and causes the numerical crashes - spacing 
+    # of corals ac.
+    # If we do probabilistic occupation of canopy and coexistance of branching and massive coral volume under,
+    # this ac has to be adjusted to the space of coral "stem" base diameter with 95% confidence interval - as corals
+    # of different species do not like other branches/stems too close and release some substances to discourage overgrowth
+    
     def volume(self, coral_volume):
         """
         :param coral_volume: coral volume [m3]
         :type coral_volume: float, int, list, tuple, np.ndarray
         """
-        self.update_morphology(coral_volume, rf=self.rf, rp=self.rp, rs=self.rs)
+        self.update_morphology(coral_volume, rf=self.rf, rp=self.rp, rs=self.rs) 
+        
+        # NOTE: Do not mix the general volume and volume update function due to competition.
+        # This volume here basically updates the volume based on the ratios - that are stable now, but were dynamic due to flow and competition
 
     def update_morphology(self, coral_volume, rf, rp, rs):
         """Update the coral morphology based on updated coral volume and morphological ratios.
@@ -169,7 +209,7 @@ class Coral:
     @property
     def dc_matrix(self):
         """Reshaped coral plate diameter."""
-        return RESHAPE.variable2matrix(self.dc, 'space')
+        return RESHAPE.variable2matrix(self.dc, 'space') # check what exactly is "space" here and does it correlate with canopy?
 
     @property
     def hc_matrix(self):
@@ -190,7 +230,17 @@ class Coral:
     def ac_matrix(self):
         """Reshaped axial distance."""
         return RESHAPE.variable2matrix(self.ac, 'space')
-
+    
+    @property 
+    def planar_area_matrix(self):
+        """Reshaped planar area."""
+        return RESHAPE.variable2matrix(self.planar_area, 'space')
+    
+    @property 
+    def surface_area_matrix(self):
+        """Reshaped planar area."""
+        return RESHAPE.variable2matrix(self.surface_area, 'space')
+    
     @property
     def dc_rep_matrix(self):
         """Reshaped representative coral diameter."""
@@ -199,6 +249,7 @@ class Coral:
     @property
     def as_vegetation_density(self):
         """Translation from coral morphology to (vegetation) density."""
+        #would it really work with having coral volumes co-existing in the same canopy space? 
 
         def function(dc_rep, ac):
             return (2 * dc_rep) / (ac ** 2)
@@ -211,10 +262,10 @@ class Coral:
 
     @property
     def cover(self):
-        """Carrying capacity."""
+        """Carrying capacity.""" # it should be most likely out of here! or we define here that all the space is available for potential settling and growth and then murder them in Canopy file
         if self._cover is None:
             cover = np.ones(np.array(self.volume).shape)
-            cover[self.volume == 0.] = 0. # 21.09 made 0. instead of just zero
+            cover[self.volume == 0.] = 0. 
             return cover
 
         return self._cover
@@ -225,7 +276,7 @@ class Coral:
         :param carrying_capacity: carrying capacity [m2 m-2]
         :type carrying_capacity: float, list, tuple, numpy.ndarray
         """
-        carrying_capacity = RESHAPE.variable2array(carrying_capacity)
+        carrying_capacity = RESHAPE.variable2array(carrying_capacity) # Check if this has to be here!
         if not self.volume.shape == carrying_capacity.shape:
             raise ValueError(
                 f'Shapes do not match: '
@@ -254,7 +305,7 @@ class Coral:
         :type cover: None, numpy.ndarray
         """
         if cover is not None:
-            cover = RESHAPE.variable2array(cover)
+            cover = RESHAPE.variable2array(cover)   # ! Check the function! 
             if not cover.shape[0] == RESHAPE.space:
                 msg = f'Spatial dimension of cover does not match: {cover.shape} =/= {RESHAPE.space}.'
                 raise ValueError(msg)
@@ -278,11 +329,23 @@ class Coral:
 
 # # biophysical processes
 
+class Massive(Coral):
+    """ Class of Massive corals. Inherits all the initialisation properties and functions of parent super-class Coral.
+    Here some class-specific functions can be added. """
+    def __init__(self):
+            super().__init__()
+            
+
+class Branching(Coral):
+    """ Class of Branching corals. Inherits all the properties of class Coral"""
+    def __init__(self):
+            super().__init__()            
+            
 
 class Light:
     """Light micro-environment."""
 
-    def __init__(self, constants, light_in, lac, depth):
+    def __init__(self, constants, cor_typ, light_in, lac, depth):
         """Light micro-environment.
 
         :param light_in: incoming light-intensity at the water-air interface [u mol photons m-2 s-1]
@@ -294,61 +357,29 @@ class Light:
         :type depth: float, list, tuple, numpy.ndarray
         """
         self.I0 = RESHAPE.variable2matrix(light_in, 'time')
-        self.Kd = RESHAPE.variable2matrix(lac, 'time')
-        self.h = RESHAPE.variable2matrix(depth, 'space')
+        self.Kd = RESHAPE.variable2matrix(lac, 'time') # also there for turbidity proxy
+        self.h = RESHAPE.variable2matrix(depth, 'space')                                          # CHECK!
         self.constants = constants
-
-    def rep_light(self, coral):
-        """Representative light-intensity.
         
-        :param coral: coral animal
-        :type coral: Coral
-        """
-        base_section = self.base_light(coral)
-        # # light catchment per coral section
-        # top of plate
-        top = .25 * np.pi * coral.dc_matrix ** 2 * self.I0 * np.exp(
-            -self.Kd * (self.h - coral.hc_matrix)
-        )
-        # side of plate
-        side = (np.pi * coral.dc_matrix * self.I0) / self.Kd * (
-                np.exp(-self.Kd * (self.h - coral.hc_matrix)) -
-                np.exp(-self.Kd * (self.h - coral.hc_matrix + coral.tc_matrix))
-        ) * self.side_correction(coral)
-        # side of base
-        base = (np.pi * coral.bc_matrix * self.I0) / self.Kd * (
-                np.exp(-self.Kd * (self.h - base_section)) -
-                np.exp(-self.Kd * self.h)
-        ) * self.side_correction(coral)
-        # total
-        total = top + side + base
+      
+    
 
-        # # biomass-averaged
-        self.biomass(coral)
-
-        def averaged_light(total_light, biomass):
-            """Averaged light-intensity."""
-            return total_light / biomass
-
-        coral.light = CoralOnly().in_spacetime(
-            coral=coral,
-            function=averaged_light,
-            args=(total, coral.Bc),
-            no_cover_value=self.I0 * np.exp(-self.Kd * self.h)
-        )
-
-    def biomass(self, coral):
-        """Coral biomass; as surface.
+    # def biomass(self, constants, coral):
+    #     """Coral biomass; as surface.
         
-        :param coral: coral animal
-        :type coral: Coral
-        """
-        base_section = self.base_light(coral)
-        coral.Bc = np.pi * (
-                .25 * coral.dc_matrix ** 2 +
-                coral.dc_matrix * coral.tc_matrix +
-                coral.bc_matrix * base_section
-        )
+    #     :param coral: coral animal
+    #     :type coral: Coral
+    #     """
+    #     self.constants = constants
+    #     # base_section = self.base_light(coral)
+    #     # coral.Bc = np.pi * (
+    #     #         .25 * coral.dc_matrix ** 2 +
+    #     #         coral.dc_matrix * coral.tc_matrix +
+    #     #         coral.bc_matrix * base_section
+    #     # )
+        
+    #     coral.Bc = self.constants.sa_dc_coef * (coral.dc_matrix ** self.constants.sa_dc_exp)
+    #     return coral.Bc
 
     def base_light(self, coral):
         """Section of coral base receiving light.
@@ -375,8 +406,9 @@ class Light:
         :type coral: Coral
         """
         return self.constants.theta_max * np.exp(
-            -self.Kd * (self.h - coral.hc_matrix + coral.tc_matrix)
-        )
+            -self.Kd * (self.h - coral.hc_matrix + coral.tc_matrix))
+    
+     
 
     def side_correction(self, coral):
         """Correction of the light-intensity on the sides of the coral object.
@@ -389,6 +421,72 @@ class Light:
 
         # # correction factor
         return np.sin(.5 * theta)
+        
+    def rep_light(self,coral):
+        
+        base_section = self.base_light(coral)
+        # # light catchment per coral section
+        # top of plate
+        # top = .25 * np.pi * coral.dc_matrix ** 2 * self.I0 * np.exp(
+        #    -self.Kd * (self.h - coral.hc_matrix))
+        
+        top = coral.planar_area_matrix * self.I0 * np.exp(
+            -self.Kd * (self.h - coral.hc_matrix))     # formula is the same, 
+        # but I introduced planar area earlier
+        
+        # For the rest, according to Kaniewska, 2014 - there is within colony light attenuation
+        # different for branches direction
+        
+        # at the same time, massive corals do not have the branches and much extra SA,
+        # So within colony LAC is not needed for them 
+        
+        # If I introduce within-colony Light attemuation, do I need side correction in this case? 
+        # Probably yes, but we do not know how branches are aligned
+        
+        # ToDo: surface_area is actually biomass in this model, still has to be changed to the equation of dependency on planar area or volume
+        
+        side1 = ((coral.surface_area_matrix - coral.planar_area_matrix)/2.0) * self.I0*np.exp(
+            -self.Kd*(self.h - coral.hc_matrix))* self.side_correction(coral) *np.exp(-self.constants.coral_Kd_1*(coral.tc_matrix/2.))
+        
+        side2 = ((coral.surface_area_matrix - coral.planar_area_matrix)/2.0) * self.I0*np.exp(
+            -self.Kd*(self.h - coral.hc_matrix))* self.side_correction(coral) *np.exp(-self.constants.coral_Kd_2*(coral.tc_matrix/2.))
+        
+        
+        
+        # side1 = (coral.surface_area_matrix - coral.planar_area_matrix - base_section)* 0.5 * self.I0 * np.exp(
+        #     -1.0 *self.Kd * (self.h - coral.hc_matrix)) * np.exp(-1.*self.constants.coral_Kd_1 * coral.tc_matrix)* self.side_correction(coral)
+        
+        # side2 = (coral.surface_area_matrix - coral.planar_area_matrix - base_section)* 0.5 * self.I0 * np.exp(
+        #     -1.0 * self.Kd * (self.h - coral.hc_matrix)) * np.exp(-1.0* self.constants.coral_Kd_2 * coral.tc_matrix)* self.side_correction(coral)
+        
+        # # side of plate
+        # side = (np.pi * coral.dc_matrix * self.I0) / self.Kd * (
+        #         np.exp(-self.Kd * (self.h - coral.hc_matrix)) -
+        #         np.exp(-self.Kd * (self.h - coral.hc_matrix + coral.tc_matrix))
+        # ) * self.side_correction(coral)
+        
+        # # side of base
+        # base = (np.pi * coral.bc_matrix * self.I0) / self.Kd * (
+        #         np.exp(-self.Kd * (self.h - base_section)) -
+        #         np.exp(-self.Kd * self.h) 
+        # ) * self.side_correction(coral)
+        # total
+        total = top + side1 + side2
+
+        def averaged_light(total_light, surface_area):
+            """Averaged light-intensity."""
+            return total_light / surface_area
+        
+        # Still good and a validation point for average light intensity dispersion 
+        # over the colony (Kaniewska 2014, colony averaged PAR)
+
+        coral.light = CoralOnly().in_spacetime(
+            coral=coral,
+            function=averaged_light,
+            args=(total, coral.surface_area),
+            no_cover_value=self.I0 * np.exp(-self.Kd * self.h)) # check the args, so uses total from rep_light
+        
+
 
 
 class Flow:
@@ -408,21 +506,23 @@ class Flow:
         """
         self.uc = RESHAPE.variable2array(u_current)
         self.uw = RESHAPE.variable2array(u_wave)
-        self.h = RESHAPE.variable2matrix(h, 'space')
+        self.h = RESHAPE.variable2matrix(h, 'space')                                    # CHECK!
         self.Tp = RESHAPE.variable2array(peak_period)
         self.active = False if u_current is None and u_wave is None else True
         self.constants = constants
 
-
+# =============================================================================
+# Check the Porous Media Theory - Thesis, page 27! for the flow microenvironment
+# =============================================================================
     @property
     def uc_matrix(self):
         """Reshaped current flow velocity."""
-        return RESHAPE.variable2matrix(self.uc, 'space')
+        return RESHAPE.variable2matrix(self.uc, 'space')  # CHECK!
 
     @property
     def uw_matrix(self):
         """Reshaped wave flow velocity."""
-        return RESHAPE.variable2matrix(self.uw, 'space')
+        return RESHAPE.variable2matrix(self.uw, 'space') # CHECK!
 
     def velocities(self, coral, in_canopy=True):
         """In-canopy flow velocities, and depth-averaged flow velocities.
@@ -450,7 +550,7 @@ class Flow:
             coral.ucm = self.wave_current(alpha_w, alpha_c)
             coral.um = self.wave_current()
         else:
-            coral.ucm = 9999 * np.ones(RESHAPE.space)
+            coral.ucm = 9999 * np.ones(RESHAPE.space)   #CHECK!
 
     def wave_current(self, alpha_w=1, alpha_c=1):
         """Wave-current interaction.
@@ -464,9 +564,23 @@ class Flow:
         :return: wave-current interaction
         :rtype: float, numpy.ndarray
         """
+        
+        # Why don't we put alpha-w and alpha_c as constants as self.constants.alpha_w ?
+        # Or is it recalculated in coupling within the hydrodynamics.py file? Check!
+        
+        # Didn't find it anywhere else, but there is wac calculation below
+        
+        # Or why don't we use the WAC that is calculated below with iterations?
+        
         return np.sqrt(
             (alpha_w * self.uw) ** 2 + (alpha_c * self.uc) ** 2 +
             2 * alpha_w * self.uw * alpha_c * self.uc *
+            np.cos(self.constants.wcAngle)
+        )
+        # Alternative
+        return np.sqrt(
+            (self.constants.alpha_w * self.uw) ** 2 + (self.constants.alpha_c * self.uc) ** 2 +
+            2 * self.constants.alpha_w * self.uw * self.constants.alpha_c * self.uc *
             np.cos(self.constants.wcAngle)
         )
 
@@ -528,7 +642,7 @@ class Flow:
 
         # # parameter definitions
         # geometric parameters
-        planar_area = .25 * np.pi * diameter ** 2
+        planar_area = .25 * np.pi * diameter ** 2 # TODO: planar area = planar area
         frontal_area = diameter * height
         total_area = .5 * distance ** 2
         lambda_planar = planar_area / total_area
@@ -629,8 +743,10 @@ class Temperature:
         :param coral: coral animal
         :type coral: Coral
         """
+        # Why is it in Kelvin? Why we have to transform Celcius to Kelvins just for this function? 
+        
         if self.constants.tme:
-            delta_t = RESHAPE.variable2matrix(coral.delta_t, 'space')
+            delta_t = RESHAPE.variable2matrix(coral.delta_t, 'space') #CHECK!
             coral.dTc = (
                     (delta_t * self.constants.ap) / (self.constants.k * self.constants.K0) *
                     coral.light
@@ -659,6 +775,7 @@ class Photosynthesis:
         self.pld = 1
         self.ptd = 1
         self.pfd = 1
+        # How does it correlate with initial coral input file, where pfd = False????
         
         self.constants = constants
         
@@ -691,18 +808,21 @@ class Photosynthesis:
         :type coral: Coral
         :type output: str
         """
-
+        
         def photo_acclimation(x_old, param):
             """Photo-acclimation."""
             # input check
-            params = ('Ik', 'Pmax')
+            params = ('Ik', 'rETRmax')
             if param not in params:
                 message = f'{param} not in {params}.'
                 raise ValueError(message)
 
             # parameter definitions
-            x_max = self.constants.ik_max if param == 'Ik' else self.constants.pm_max
-            beta_x = self.constants.betaI if param == 'Ik' else self.constants.betaP
+            x_max = self.constants.ik_max if param == 'Ik' else self.constants.rETR_max_qss
+            beta_x = self.constants.betaI if param == 'Ik' else self.constants.beta_rETR
+            
+            # Why in text Table 4.1 Pm_max = 3.96, but default in the model input and environment it is 1.0?
+
 
             # calculations
             xs = x_max * (coral.light / self.I0) ** beta_x
@@ -710,17 +830,96 @@ class Photosynthesis:
                 return xs
             elif output == 'new':
                 return xs + (x_old - xs) * np.exp(-self.constants.iota)
+            
+            # but "new" is never used? - formula from Anthony, H-G(2003) for adaptation to new conditions
+            
+            # coral.light - colony averaged light, should be consistent with Kaniewska 2014 light!
 
         # # parameter definitions
         if output == 'qss':
             ik = photo_acclimation(None, 'Ik')
-            p_max = photo_acclimation( None, 'Pmax')
+            rETR_max_z = photo_acclimation( None, 'rETRmax')
         else:
             msg = f'Only the quasi-steady state solution is currently implemented; use key-word \'qss\'.'
             raise NotImplementedError(msg)
 
+# TODO: Make separate modes for Pmax and rETRmax. Note: Calcification constant should be different then as well
+        # def photo_acclimation(x_old, param):
+        #     """Photo-acclimation."""
+        #     # input check
+        #     params = ('Ik', 'Pmax')
+        #     if param not in params:
+        #         message = f'{param} not in {params}.'
+        #         raise ValueError(message)
+
+        #     # parameter definitions
+        #     x_max = self.constants.ik_max if param == 'Ik' else self.constants.pm_max
+        #     beta_x = self.constants.betaI if param == 'Ik' else self.constants.betaP
+            
+        #     # Why in text Table 4.1 Pm_max = 3.96, but default in the model input and environment it is 1.0?
+
+
+        #     # calculations
+        #     xs = x_max * (coral.light / self.I0) ** beta_x
+        #     if output == 'qss':
+        #         return xs
+        #     elif output == 'new':
+        #         return xs + (x_old - xs) * np.exp(-self.constants.iota)
+            
+        #     # coral.light - colony averaged light, should be consistent with Kaniewska 2014 light!
+
+        # # # parameter definitions
+        # if output == 'qss':
+        #     ik = photo_acclimation(None, 'Ik')
+        #     p_max = photo_acclimation( None, 'Pmax')
+        # else:
+        #     msg = f'Only the quasi-steady state solution is currently implemented; use key-word \'qss\'.'
+        #     raise NotImplementedError(msg)
+            
+     
+
+
         # # calculations
-        self.pld = p_max * (np.tanh(coral.light / ik) - np.tanh(self.constants.Icomp * self.I0 / ik))
+        # old Platt 1976 equation without photoinhibition
+        # self.pld = p_max * (np.tanh(coral.light / ik) - np.tanh(self.constants.Icomp * self.I0 / ik))
+        """ Function based on Platt, 1980 to calculate photosynthetic efficiency
+            P_max = set for coral group 
+            Note: With transplantation P_max can change!
+            
+            alpha - characterises photochemical reaction, the slope of the initial part of the P-I curve
+            beta - characterises photoinhibition, the slope of the last decreasing part of the P-I curve 
+            
+            for branching coral beta = 0 
+            
+            Should have 2 modes for coral here, so that: 
+                massive coral alpha = self.constants.alpha (constant value, but Pmax can adjust)
+                branching coral alpha = rETRmax/ik (because I decide to have them with flexible Ik, but 
+                as their photoinhibition beta=0, then rETRmax observed = rETRmax(z))
+    
+            """
+            # TODO :  make 2 modes for alpha estimation, depending on the coral group
+                 
+        # Massive coral
+        # alpha=self.constants.alpha
+        # phi = self.constants.phi - commented out, as they will be constant for both coral groups
+        
+        # branching coral
+        #alpha = rETR_max/ik # disabled for massive now
+        
+        # cannot use it like this for massive, as it will have Ik at 300+, 
+        # while it should be rETRmax observed/ik        
+            # beta = 0 for branching but exists for massive corals. Larger beta means higher photoinhibition
+            
+            # a = (alpha*I)/Pmax
+            # in the code I = coral.light
+            
+        a = (self.constants.alpha * coral.light)/rETR_max_z
+            
+        b = (self.constants.phi * coral.light)/rETR_max_z   
+        
+        self.pld = rETR_max_z  * (1.0 - np.exp(-a)) * np.exp(-b)
+        
+        
     
 
     def thermal_dependency(self, coral, env, year):
@@ -835,7 +1034,7 @@ class Photosynthesis:
 
 
 class PopulationStates:
-    """Bleaching response following the population dynamics."""
+    """Bleaching response following the population dynamics."""  # check the competition for space here
     # TODO: Check this class; incl. writing tests
 
     def __init__(self, constants, dt=1):
@@ -929,7 +1128,7 @@ class Calcification:
 
     def __init__(self, constants):
         """Calcification rate."""
-        self.ad = 1
+        self.ad = 1 # what is this? Aragonite dependency???? Why is it set to 1 then? 
         self.constants = constants
 
 
@@ -948,13 +1147,28 @@ class Calcification:
             calcification_object.ad = (omega - self.constants.omega0) / (
                     self.constants.kappaA + omega - self.constants.omega0)
             calcification_object.ad = RESHAPE.variable2matrix(calcification_object.ad, 'time')
+            
+        zero_calc = np.zeros(coral.photo_rate.shape) # creating an array of zeros
 
-        aragonite_dependency(self)
-        coral.calc = self.constants.gC * coral.Csp * coral.pop_states[:, :, 0] * self.ad * coral.photo_rate
-
+        aragonite_dependency(self) #Why here we do not write return ad=  aragonite_dependency(self)
+        calcification = self.constants.gC * coral.Csp * coral.pop_states[:, :, 0] * self.ad * coral.photo_rate 
+        
+        coral.calc = np.maximum(zero_calc, calcification) # this compares zero array and calculated with formula calcification an for each value should return the maxium one
+        # So if calculated in calcification value is negative, it will become Zero.
+        
+        # or here coral.araginite_dependency instead of self.ad?
+        # And where did P(T) and P(u) get lost? 
+        
+        # Shouldn't it be like this:
+        # coral.calc = self.constants.gC * coral.Csp * coral.pop_states[:, :, 0] * self.ad * coral.photo_rate * coral.pld * coral.pfd
+        # No,  because coral.photo_rate already has that dependencies
 
 class Morphology:
     """Morphological development."""
+    
+    # Should be updated, so tehy are not constant, as I made before
+    # But maybe I can set dependence for branching coral in a way that if no
+    # space available in top canopy, then they grow up
     
     __rf_optimal = None
     __rp_optimal = None
@@ -981,7 +1195,7 @@ class Morphology:
         self.dt_year = dt_year
 
         self.I0 = RESHAPE.variable2matrix(light_in, 'time')
-        self.vol_increase = 0
+        self.vol_increase = 0 # does it mean that it is 0 at the first moment, while we initialise the model?
         
         self.constants = constants
 
@@ -1063,6 +1277,10 @@ class Morphology:
         :param coral: coral animal
         :type coral: Coral
         """
+        
+        # optimal spacing should be dependant on the distance petween "stems" + 95% confidence, so they don't touch each other
+        
+        # should then add the vertical component to it as well? check last years formulations 
         self.__coral_object_checker(coral)
         
         # self.__rs_optimal = 0.5/np.sqrt(2.0) * 0.25
@@ -1078,7 +1296,28 @@ class Morphology:
         :param coral: coral object
         :type coral: Coral
         """
-        self.vol_increase = .5 * coral.ac ** 2 * self.calc_sum * self.dt_year /self.constants.rho_c * coral.Bc.mean(axis=1)
+        # self.vol_increase = .5 * coral.ac ** 2 * self.calc_sum * self.dt_year /self.constants.rho_c * coral.Bc.mean(axis=1)
+        
+        # why is it multiplied to 0.5? - found on page 128 thesis
+        
+        # BUT: How can I limit the coral volume increase here with spacing? 
+        # In this case, voulume is measured in m^5? - Does not make sense
+        # volume added depends on the active SA and calcification rate and skeletal density
+        
+        # Plus, only healthy coral calcifyes for growth, so shouldn't I also multply by P(Healthy)? P[:,0] - Already implemented into coral.calc_sum
+        # The other thing is if we cannot add it to the periphery and should grow in height. 
+        
+        self.vol_increase = self.calc_sum * self.dt_year /self.constants.rho_c * coral.surface_area    #.mean(axis=1) 
+        # I remove the mean operator, as it makes the model bug. In the old version, biomass was calculated daily, 
+        # so had dimensions (313, 366) with the exact same value each day, BECAUSE tc, dc, hc, etc were given annualy, so had 
+        # dimension hc (313, ).
+        # So, it does not make sense to have daily calculation and receive exact same value every day
+        
+        # Either, it has to be daily calc multiplied by surface area of that exact day
+        # Or multiplication by biomass survived by the end of the year (that is still the same, as other dc, hc are annual)
+        
+        # So, I remove "mean", as my surface_area is already (313, ), so of course there is nothing to take mean of. 
+    
         return self.vol_increase
 
     def ratio_update(self, coral, ratio):
@@ -1123,6 +1362,9 @@ class Morphology:
         
         # updated volume
         volume = coral.volume + self.vol_increase
+        
+        # Adding update for planar area here? or maybe
+        
 
         # update coral morphology
         coral.update_morphology(volume, *ratios)
@@ -1132,6 +1374,7 @@ class Morphology:
 
 class Dislodgement:
     """Dislodgement due to storm conditions."""
+    # check the Porous media theory for dislodgement update
 
     def __init__(self, constants):
         """Dislodgement check."""
@@ -1146,7 +1389,7 @@ class Dislodgement:
         """Update morphology due to storm damage.
 
         :param coral: coral animal
-        :param survival_coefficient: percentage of partial survival, defualts to 1
+        :param survival_coefficient: percentage of partial survival, defualts to 1 # - So all of them survive? 
 
         :type coral: Coral
         :type survival_coefficient: float, optional
@@ -1322,5 +1565,4 @@ class Recruitment:
         :type cover_potential: float
         """
         return potential * averaged_healthy_pop * (1 - cover_real / cover_potential)
-
-
+    

@@ -23,12 +23,14 @@ class Constants:
         # processes
         fme = False             # False     ! flow micro-environment
         tme = False             # False     ! thermal micro-environment
-        pfd = False             # False     ! ??
+        pfd = False             # False     ! photosynthetic - flow dependency
         warn_proc = True        # True      ! print warning for incompatible processes
         
         # light attenuation
         Kd0 = 0.1               #  .1       ! constant light-attenuation coefficient [m-1]; used when no time-series provided
         theta_max = 0.5         #  0.5      ! maximum spreading of light [rad]; defined at water-air interface
+        coral_Kd_1 = 0.         #  0.0      ! constant within-colony light-attenuation coefficient, lit side (0.0 for massive, add value for branching)
+        coral_Kd_2 = 0.         #  0.0      ! constant within-colony light-attenuation coefficient, strongly shaded side (0.0 for massive, add value for branching)
         
         # flow mirco-environment
         Cs = 0.17               #  .17      ! Smagorinsky coefficient [-]
@@ -43,6 +45,8 @@ class Constants:
         err = 1e-3              #  1e-3     ! maximum allowed relative error for drag coefficient estimation [-]
         maxiter_k = 1e5         #  1e5      ! maximum number of iterations taken over canopy layers
         maxiter_aw = 1e5        #  1e5      ! maximum number of iterations to solve complex-valued wave-attenuation coefficient
+        alpha_w = 1.            # 1.0       ! wave-attenuation coefficient, defaults to 1
+        alpha_c = 1.            # 1.0       !  current-attenuation coefficient, defaults to 1
         
         # thermal micro-environment
         K0 = 80.                #  80.      ! morphological thermal coefficient [-]
@@ -53,9 +57,14 @@ class Constants:
         iota = .6               # .6        ! photo-acclimation rate [d-1]
         ik_max = 372.32         # 372.32    ! maximum quasi steady-state saturation light-intensity [umol photons m-2 s-1]
         pm_max = 1.             #  1.       ! maximum quasi steady-state maximum photosynthetic efficiency [-]
+        rETR_max_qss = 70.0     # 70.0      ! maximum quasi steady-state maximum relative electron transport rate [-]
+        beta_rETR = 0.09        # 0.09      ! exponent of the quasi steady-state maximum relative electron transport rate [-]  
         betaI = .34             # .34       ! exponent of the quasi steady-state saturation light-intensity [-]
         betaP = .09             # .09       ! exponent of the quasi steady-state maximum photosynthetic efficiency [-]
         Icomp = .01             # .01       ! fraction of I0 at compensation point [-]
+        phi = 0.05              # 0.05      ! Photoinhibition coefficient, defines the slope of photosynthetic efficiency reduction [-]
+        alpha = 0.2             # 0.2       ! Initial slope of photosynthetic curve until reaching the compensation point [-]
+
         
         # photosynthetic thermal dependency
         Ea = 6e4                # 6e4       ! activation energy [J mol-1]
@@ -79,8 +88,17 @@ class Constants:
         omegaA0 = 5.            # 5         ! aragonite saturation state used in absence of time-series [-]
         omega0 = .14587415      # .14587415 ! aragonite dissolution state [-]
         kappaA = .66236107      # .66236107 ! modified Michaelis-Menten half-rate coefficient [-]
-        #
+        
         # morphological development
+        
+        dc_pa_coef =            #            ! Coefficient for diameter - planar area relationship [-]
+        dc_pa_exp =             #            ! Exponent for diameter - planar area relationship [-]
+
+        pa_vol_coef=            #            ! Coefficient for planar area - volume relationship [-]
+        pa_vol_exp=             #             ! Exponent for the planar area - volume relationship [-]
+        
+        sa_dc_coef =            #           ! Coefficient for surface area - diameter relationship
+        sa_dc_exp =             #           ! Exponent for surface area - diameter relationship
         
         rf = 1.0                # 0.8       ! form ratio height to diameter [-]
         rp = 1.0                # 1.0       ! plate ratio base to top diameter [-] 
@@ -114,7 +132,9 @@ class Constants:
         # light micro-environment
         self.Kd0 = None
         self.theta_max = None
-
+        self.coral_Kd_1 = None     
+        self.coral_Kd_2 = None     
+        
         # flow micro-environment
         self.Cs =  None
         self.Cm =  None
@@ -128,6 +148,8 @@ class Constants:
         self.err =  None
         self.maxiter_k =  None
         self.maxiter_aw =  None
+        self.alpha_w = None
+        self.alpha_c = None 
 
         # thermal micro-environment
         self.K0 =  None
@@ -138,9 +160,13 @@ class Constants:
         self.iota =  None
         self.ik_max =  None
         self.pm_max =  None
+        self.rETR_max_qss = None
+        self.beta_rETR = None
         self.betaI = None
         self.betaP =  None
         self.Icomp = None
+        self.phi = None
+        self.alpha = None
 
         # photosynthetic thermal dependency
         self.Ea = None
@@ -165,6 +191,16 @@ class Constants:
         self.kappaA = None
 
         # morphological development
+        self.dc_pa_coef = None
+        self.dc_pa_exp = None
+
+        self.pa_vol_coef= None
+        self.pa_vol_exp= None
+        
+        self.sa_dc_coef = None    
+        self.sa_dc_exp = None
+        
+        
         self.rf = None
         self.rp = None
         self.prop_form =  None
@@ -250,6 +286,8 @@ class Constants:
         # light micro-environment
         self.Kd0 = default("Kd0", .1)
         self.theta_max = default("theta_max", .5) * np.pi
+        self.coral_Kd_1 = default("coral_Kd_1", 0.)    
+        self.coral_Kd_2 = default("coral_Kd_2", 0.)      
 
         # flow micro-environment
         self.Cs = default("Cs", .17)
@@ -264,6 +302,8 @@ class Constants:
         self.err = default("err", 1e-3)
         self.maxiter_k = int(default("maxiter_k", 1e5))
         self.maxiter_aw = int(default("maxiter_aw", 1e5))
+        self.alpha_w = default("alpha_w", 1.0)
+        self.alpha_c =default("alpha_c", 1.0)
 
         # thermal micro-environment
         self.K0 = default("K0", 80.)
@@ -274,9 +314,13 @@ class Constants:
         self.iota = default("iota", .6)
         self.ik_max = default("ik_max", 372.32)
         self.pm_max = default("pm_max", 1.)
+        self.rETR_max_qss = default("rETTR_max_qss", 70.0)
+        self.beta_rETR = default("beta_rETR", 0.09)  
         self.betaI = default("betaI", .34)
         self.betaP = default("beta_P", .09)
         self.Icomp = default("Icomp", .01)
+        self.phi = default("phi", 0.05)
+        self.alpha = default("alpha", 0.2)
 
         # photosynthetic thermal dependency
         self.Ea = default("Ea", 6e4)
@@ -301,6 +345,16 @@ class Constants:
         self.kappaA = default("kappaA", .66236107)
 
         # morphological development
+        
+        self.dc_pa_coef = default ("dc_pa_coef", 0.5557)
+        self.dc_pa_exp = default ("dc_pa_exp", 1.9458)
+
+        self.pa_vol_coef= default ("pa_vol_coef", 0.2589)
+        self.pa_vol_exp= default ("pa_vol_exp", 1.4482)
+        
+        self.sa_dc_coef = default ("sa_dc_coef", 1.6785) 
+        self.sa_dc_exp = default("sa_dc_exp", 1.8841)
+        
         self.rf = default("rf", 1.0)
         self.rp = default("rp", 1.0)
         self.prop_form = default("prop_form", .1)

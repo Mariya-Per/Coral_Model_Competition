@@ -521,6 +521,16 @@ class Output:
                 ac_set.long_name = 'coral axial distance'
                 ac_set.units = 'm'
                 ac_set[0, :] = coral.ac
+                
+                pa_set = self._map_data.createVariable('PA', 'f8', ('time', 'nmesh2d_face'))
+                pa_set.long_name = 'planar area'
+                pa_set.units = 'm2'
+                pa_set[0, :] = coral.planar_area     
+                
+                SA_set = self._map_data.createVariable('SA', 'f8', ('time', 'nmesh2d_face'))
+                SA_set.long_name = 'surface area'
+                SA_set.units = 'm2'
+                SA_set[0, :] = coral.surface_area
 
                 vc_set = self._map_data.createVariable('Vc', 'f8', ('time', 'nmesh2d_face'))
                 vc_set.long_name = 'coral volume'
@@ -566,6 +576,8 @@ class Output:
                 self._map_data['bc'][-1, :] = coral.bc
                 self._map_data['tc'][-1, :] = coral.tc
                 self._map_data['ac'][-1, :] = coral.ac
+                self._map_data['PA'][-1, :] = coral.planar_area
+                self._map_data['SA'][-1, :] = coral.surface_area
                 self._map_data['Vc'][-1, :] = coral.volume
 
             self._map_data.close()
@@ -697,6 +709,14 @@ class Output:
                 ac_set = self._his_data.createVariable('ac', 'f8', ('time', 'stations'))
                 ac_set.long_name = 'coral axial distance'
                 ac_set.units = 'm'
+                
+                PA_set = self._his_data.createVariable('PA', 'f8', ('time', 'stations'))
+                PA_set.long_name = 'planar area'
+                PA_set.units = 'm2'
+                
+                SA_set = self._his_data.createVariable('SA', 'f8', ('time', 'stations'))
+                SA_set.long_name = 'surface area'
+                SA_set.units = 'm2'
 
                 vc_set = self._his_data.createVariable('Vc', 'f8', ('time', 'stations'))
                 vc_set.long_name = 'coral volume'
@@ -746,6 +766,8 @@ class Output:
                 self._his_data['bc'][ti, :] = np.tile(coral.bc, (len(y_dates), 1))[:, self.idx_stations]
                 self._his_data['tc'][ti, :] = np.tile(coral.tc, (len(y_dates), 1))[:, self.idx_stations]
                 self._his_data['ac'][ti, :] = np.tile(coral.ac, (len(y_dates), 1))[:, self.idx_stations]
+                self._his_data['PA'][ti, :] = np.tile(coral.planar_area, (len(y_dates), 1))[:, self.idx_stations]
+                self._his_data['SA'][ti, :] = np.tile(coral.surface_area, (len(y_dates), 1))[:, self.idx_stations]
                 self._his_data['Vc'][ti, :] = np.tile(coral.volume, (len(y_dates), 1))[:, self.idx_stations]
 
             self._his_data.close()
