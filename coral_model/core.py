@@ -18,10 +18,67 @@ RESHAPE = DataReshape()
 class Group_parameters(self):
     
     def __init__(self):
+        """
+           
+        # Key = value           ! Default   ! Definition [units]
+        #--------------------------------------------------------------------------------------------------------------------
+    
+        # light attenuation
+        coral_Kd_1 = 0.         #  0.0      ! constant within-colony light-attenuation coefficient, lit side (0.0 for massive, add value for branching)
+        coral_Kd_2 = 0.         #  0.0      ! constant within-colony light-attenuation coefficient, strongly shaded side (0.0 for massive, add value for branching)
         
-        coral related parameters here
+        # photosynthetic light dependency
+        iota = .6               # .6        ! photo-acclimation rate [d-1]
+        ik_max = 372.32         # 372.32    ! maximum quasi steady-state saturation light-intensity [umol photons m-2 s-1]
+        pm_max = 1.             #  1.       ! maximum quasi steady-state maximum photosynthetic efficiency [-]
+        rETR_max_qss = 70.0     # 70.0      ! maximum quasi steady-state maximum relative electron transport rate [-]
+        beta_rETR = 0.09        # 0.09      ! exponent of the quasi steady-state maximum relative electron transport rate [-]  
+        betaI = .34             # .34       ! exponent of the quasi steady-state saturation light-intensity [-]
+        betaP = .09             # .09       ! exponent of the quasi steady-state maximum photosynthetic efficiency [-]
+        Icomp = .01             # .01       ! fraction of I0 at compensation point [-]
+        phi = 0.05              # 0.05      ! Photoinhibition coefficient, defines the slope of photosynthetic efficiency reduction [-]
+        alpha = 0.2             # 0.2       ! Initial slope of photosynthetic curve until reaching the compensation point [-]
         
-         # photosynthetic light dependency
+        # population dynamics
+        r_growth = .002         # 0.002     ! growth rate [d-1]
+        r_recovery = .2         # .2        ! recovery rate [d-1]
+        r_mortality = .04       # .04       ! mortality rate [d-1]
+        r_bleaching =  8.       # 8.        ! bleaching rate [d-1]
+        
+        # morphological development
+        
+        dc_pa_coef =            #            ! Coefficient for diameter - planar area relationship [-]
+        dc_pa_exp =             #            ! Exponent for diameter - planar area relationship [-]
+
+        pa_vol_coef=            #            ! Coefficient for planar area - volume relationship [-]
+        pa_vol_exp=             #             ! Exponent for the planar area - volume relationship [-]
+        
+        sa_dc_coef =            #           ! Coefficient for surface area - diameter relationship
+        sa_dc_exp =             #           ! Exponent for surface area - diameter relationship
+        
+        rf = 1.0                # 0.8       ! form ratio height to diameter [-]
+        rp = 1.0                # 1.0       ! plate ratio base to top diameter [-] 
+
+        prop_form = .1          # .1        ! overall form proportionality constant [-]
+        prop_plate = .5         # .5        ! overall plate proportionality constant [-
+        prop_plate_flow = .1    # .1        !  flow plate proportionality constant [-]
+        prop_space = .5         # .5/np.sqrt(2.) ! overall space proportionality constant [-]
+        prop_space_light = .1   # .1      ! light space proportionality constant [-]
+        prop_space_flow = .1    # .1        ! flow space proportionality constant [-]
+        u0 = .2                 # .2        ! base-line flow velocity [m s-1]
+        rho_c = 1600.           # 1600.     ! density of coral [kg m-3]
+        #
+        # coral recruitment
+        no_larvae = 1e6         # 1e6       ! number of larvae released during mass spawning event [-]
+        prob_settle = 1e-4      # 1e-4      ! probability of settlement [-]
+        d_larvae = 1e-3         # 1e-3      ! larval diameter [m]
+
+        """        
+        # light micro-environment
+        self.coral_Kd_1 = None     
+        self.coral_Kd_2 = None     
+
+        # photosynthetic light dependency
         self.iota =  None
         self.ik_max =  None
         self.pm_max =  None
@@ -32,11 +89,41 @@ class Group_parameters(self):
         self.Icomp = None
         self.phi = None
         self.alpha = None
+
+        # population dynamics
+        self.r_growth =  None
+        self.r_recovery =  None
+        self.r_mortality = None
+        self.r_bleaching = None
+
+        # morphological development
+        self.dc_pa_coef = None
+        self.dc_pa_exp = None
+
+        self.pa_vol_coef= None
+        self.pa_vol_exp= None
         
-        etc etc 
+        self.sa_dc_coef = None    
+        self.sa_dc_exp = None
         
         
-    def read_it(self,inp_file):        
+        self.rf = None
+        self.rp = None
+        self.prop_form =  None
+        self.prop_plate =  None
+        self.prop_plate_flow =  None
+        self.prop_space =  None
+        self.prop_space_light = None
+        self.prop_space_flow =  None
+        self.u0 = None
+        self.rho_c = None
+
+        # coral recruitment
+        self.no_larvae =  None
+        self.prob_settle = None
+        self.d_larvae =  None
+    
+    def read_coral(self,inp_file):        
         self.inpfile=inp_file
             
         keyvals={}
@@ -61,38 +148,8 @@ class Group_parameters(self):
                 xx = default_value
             return xx
 
-        # Processes
-        self.fme = default ("fme",False) 
-        self.tme = default ("tme",False)
-        self.pfd = default ("pfd",False)
-        self.warn_proc = default("warn_proc",True)
-        
-        # light micro-environment
-        self.Kd0 = default("Kd0", .1)
-        self.theta_max = default("theta_max", .5) * np.pi
         self.coral_Kd_1 = default("coral_Kd_1", 0.)    
         self.coral_Kd_2 = default("coral_Kd_2", 0.)      
-
-        # flow micro-environment
-        self.Cs = default("Cs", .17)
-        self.Cm = default("Cm", 1.7)
-        self.Cf = default("Cf", .01)
-        self.nu = default("nu", 1e-6)
-        self.alpha = default("alpha", 1e-7)
-        self.psi = default("psi", 2)
-        self.wcAngle = default("wcAngle", 0.)
-        self.rd = default("rd", 500)
-        self.numericTheta = default("numericTheta", .5)
-        self.err = default("err", 1e-3)
-        self.maxiter_k = int(default("maxiter_k", 1e5))
-        self.maxiter_aw = int(default("maxiter_aw", 1e5))
-        self.alpha_w = default("alpha_w", 1.0)
-        self.alpha_c =default("alpha_c", 1.0)
-
-        # thermal micro-environment
-        self.K0 = default("K0", 80.)
-        self.ap = default("ap", .4)
-        self.k = default("k", .6089)
 
         # photosynthetic light dependency
         self.iota = default("iota", .6)
@@ -106,27 +163,11 @@ class Group_parameters(self):
         self.phi = default("phi", 0.05)
         self.alpha = default("alpha", 0.2)
 
-        # photosynthetic thermal dependency
-        self.Ea = default("Ea", 6e4)
-        self.R = default("R", 8.31446261815324)
-        self.k_var = default("k_var", 2.45)
-        self.nn = default("nn", 60)
-
-        # photosynthetic flow dependency
-        self.pfd_min = default("pfd_min", .68886964)
-        self.ucr = default("ucr", .5173)
-
         # population dynamics
         self.r_growth = default("r_growth", .002)
         self.r_recovery = default("r_recovery", .2)
         self.r_mortality = default("r_mortality", .04)
         self.r_bleaching = default("r_bleaching", 8.)
-
-        # calcification
-        self.gC = default("gC", .5)
-        self.omegaA0 = default("omegaA0", 5.)
-        self.omega0 = default("omega0", .14587415)
-        self.kappaA = default("kappaA", .66236107)
 
         # morphological development
         
@@ -150,18 +191,11 @@ class Group_parameters(self):
         self.u0 = default("u0", .2)
         self.rho_c = default("rho_c", 1600.)
 
-        # dislodgement criterion
-        self.sigma_t = default("sigma_t", 2e5)
-        self.Cd = default("Cd", 1.)
-        self.rho_w = default("rho_w", 1025.)
-
         # coral recruitment
         self.no_larvae = default("no_larvae", 1e6)
         self.prob_settle = default("prob_settle", 1e-4)
         self.d_larvae = default("d_larvae", 1e-3)
-        
-        # check processes for consistency
-        self.check_processes    
+                
 
 # coral object
 class Coral:
@@ -191,7 +225,7 @@ class Coral:
 #        reproduce - data available in CTDb in terms of planar area
 # =============================================================================
         self.constants = constants
-        self.cor_const = Group_parameters()
+        self.cor_const = cor_const
 
         self.dc = RESHAPE.variable2array(dc)
         self.hc = RESHAPE.variable2array(hc)
@@ -487,9 +521,9 @@ class Massive(Coral):
     Here some class-specific functions can be added. """
     def __init__(self):
             super().__init__()
-     make class Coral read coral-specific input file by default, then here I call for massive-specific file 
-similar as read_it function, all the parameters have to be initialised and read by Coral   ;
-can also write down default values and warning for missing value     
+#      make class Coral read coral-specific input file by default, then here I call for massive-specific file 
+# similar as read_it function, all the parameters have to be initialised and read by Coral   ;
+# can also write down default values and warning for missing value     
 
 class Branching(Coral):
     """ Class of Branching corals. Inherits all the properties of class Coral"""
@@ -1666,7 +1700,7 @@ class Recruitment:
         
         # may become a simple function of Canopy coral and as a fraction of free space available
         
-        addition of volume of 1 sexually-reproducable coral (5 cm diameter) 
+        # addition of volume of 1 sexually-reproducable coral (5 cm diameter) 
         
         
 

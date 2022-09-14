@@ -10,7 +10,7 @@ from tqdm import tqdm
 import os
 from netCDF4 import Dataset # may need for the output writing
 
-from coral_model.core  import Coral, Massive, Branching
+from coral_model.core  import Group_parameters, Coral, Massive, Branching
 
 
 # canopy object
@@ -25,6 +25,17 @@ class Canopy:
         Canopy describes and governs space on the reef. So, for initialisation 
         I need the x, y and bathymetry? 
         """
+        
+        @property 
+        
+        def group1_const(self):
+            dfbfbb
+            return fdbfdbg
+        
+        def group2_const(self):
+            fsdgbfdgbf
+            return fsbfgb 
+        
         
         # define those parameters here
         
@@ -41,12 +52,13 @@ class Canopy:
         # list of setters
         
         # subclasses with processes as classes with their functions
-        
- 
-        
-       
-
-        
+    
+    
+    massive_const = self.read_coral_parameters(file='massive_input.txt')    
+    
+    branching_const = self.read_coral_parameters(file='branching_input.txt')
+    
+    
         
             1. inner loop - coral physiology
         lme (light micro-environment) is affected by presence of branching coral, because then

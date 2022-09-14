@@ -10,7 +10,7 @@ from tqdm import tqdm
 import os
 
 from coral_model import core
-from coral_model.core import Light, Flow, Temperature, Photosynthesis, \
+from coral_model.core import Group_parameters, Light, Flow, Temperature, Photosynthesis, \
     PopulationStates, Calcification, Morphology, \
     Dislodgement, Recruitment
 from coral_model.environment import Constants, Environment
@@ -29,6 +29,8 @@ class Simulation:
         """
         self._environment=Environment()
         self._constants=Constants()
+        self._massive_const= Group_parameters()
+        self._branching_const = Group_parameters()
         self.__working_dir = os.getcwd()
         self.output = None
         
@@ -60,6 +62,16 @@ class Simulation:
         :rtype: Constants
         """
         return self._constants
+    
+    @property
+    def massive_const(self):
+        """ Massive coral specific constants attribute of Simulation """
+        return self._massive_const
+    
+    @property
+    def branching_const(self):
+        """Branching coral specific constants"""
+        return self._branching_const
     
     @property
     def hydrodynamics(self):
@@ -132,6 +144,11 @@ class Simulation:
         ddir = self.input_dir if folder is None else folder
         infil = os.path.join(ddir,file)
         self._constants.read_it(infil)
+        
+    def read_coral_parameters(self, file='massive_input.txt',folder=None) : #keep as default only for generic model parameters
+        ddir = self.input_dir if folder is None else folder  # not sure it is okay to refer to loop here? because loop calls for this code-file
+        infil = os.path.join(ddir,file)
+        self.Group_parameters.read_coral(infil)     
 
     def set_delft3d_environment(self):
         """Set directories and files of hydrodynamic mode 'Delft3D'."""

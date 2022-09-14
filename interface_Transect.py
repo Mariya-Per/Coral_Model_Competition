@@ -12,7 +12,7 @@ import os
 
 cwd = os.getcwd()
 
-from coral_model.core import Coral
+from coral_model.core import Coral, Massive
 from coral_model.loop import Simulation
 
 base_dir = os.path.join(r'C:\Users\perepely\GitHub_model\MariyaCompetition\CoralModel')
@@ -22,7 +22,11 @@ runTrans = Simulation(mode='Transect')
 runTrans.set_directories(os.path.join(base_dir,'Run12_08'))
 # read the input file with parameters (processes, parameters,constants, now all in "constants")
 runTrans.read_parameters(file='model_input.txt',folder=runTrans.input_dir)
+
+runTrans.read_coral_parameters(file='massive_input.txt',folder=runTrans.input_dir)
+#runTrans.read_coral_parameters(file='branching_input.txt',folder=runTrans.input_dir)
 # environment definition
+
 runTrans.environment.from_file('light', 'TS_PAR.txt',folder=runTrans.input_dir)
 runTrans.environment.from_file('temperature', 'TS_SST.txt',folder=runTrans.input_dir)
 runTrans.environment.from_file('storm', 'TS_stormcat2.txt',folder=runTrans.input_dir)
@@ -42,10 +46,13 @@ print(runTrans.hydrodynamics.settings)
 # define output
 runTrans.define_output('map', fme=False)
 runTrans.define_output('his', fme=False)
+
+
+
 # initiate coral
 coral = Coral(runTrans.constants,.125, .125, .1, .1, .1785, 0.8)
 
-massive=Massive()
+massive=Massive(runTrans.constants, runTrans.massive_const, .125, .125, .1, .1, .1785, 0.8 )
 branching=Branching()
 canopy=Canopy()
 
