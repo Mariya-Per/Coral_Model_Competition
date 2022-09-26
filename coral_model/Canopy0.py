@@ -40,6 +40,51 @@ class Canopy:
             return fsbfgb 
         
         
+        def dc_rep(self):
+            """Representative coral diameter; weighted average of base and plate diameters."""
+            return (self.bc * (self.hc - self.tc) + self.dc * self.tc) / self.hc
+        
+    
+        def dc_rep_matrix(self):
+            """Reshaped representative coral diameter."""
+            return RESHAPE.variable2matrix(self.dc_rep, 'space')
+        
+           
+        def cover(self):
+            """Carrying capacity.""" # it should be most likely out of here! or we define here that all the space is available for potential settling and growth and then murder them in Canopy file
+            if self._cover is None:
+                cover = np.ones(np.array(self.volume).shape)
+                cover[self.volume == 0.] = 0. 
+                return cover
+    
+            return self._cover
+    
+        @cover.setter
+        def cover(self, carrying_capacity):
+            """
+            :param carrying_capacity: carrying capacity [m2 m-2]
+            :type carrying_capacity: float, list, tuple, numpy.ndarray
+            """
+            carrying_capacity = RESHAPE.variable2array(carrying_capacity) # Check if this has to be here!
+            if not self.volume.shape == carrying_capacity.shape:
+                raise ValueError(
+                    f'Shapes do not match: '
+                    f'{self.volume.shape} =/= {carrying_capacity.shape}'
+                )
+    
+            if sum(self.volume[carrying_capacity == 0.]) > 0. :
+                print(
+                    f'WARNING: Coral volume present where the carrying capacity is zero. This is unrealistic.'
+                )
+    
+            self._cover = carrying_capacity
+    
+        @property
+        def living_cover(self):
+            """Living coral cover based on population states."""
+            if self.pop_states is not None:
+                return self.pop_states.sum(axis=2)
+        
         # define those parameters here
         
         # Class canopy 
