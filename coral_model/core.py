@@ -1190,7 +1190,7 @@ class Coral:
         self.volume *= self.survival
 
 
-    def recruitment_update(self): # write the recruitment formulas based on space available 
+    def recruitment_update(self, free_space): # write the recruitment formulas based on space available 
         """Recruitment dynamics.
            Addition of volume to the representative coral animal. 
            1 recruited coral has volume of 1 sexually mature coral (approx. 5cm diameter)
