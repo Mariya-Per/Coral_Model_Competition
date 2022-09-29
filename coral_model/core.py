@@ -10,7 +10,7 @@ import pandas as pd
 import distutils.util as du
 from scipy.optimize import newton
 
-from coral_model.utils import DataReshape, CoralOnly
+from coral_model.utils import DataReshape
 
 # # data formatting -- to be reformatted in the model simulation
 RESHAPE = DataReshape()
@@ -465,7 +465,7 @@ class Coral:
             # Still good and a validation point for average light intensity dispersion 
             # over the colony (Kaniewska 2014, colony averaged PAR)
             
-            #TODO: check what the CoralOnly stuff is doing here
+            
             # update the properties for the coral processes then, where calls for light? Because then will have separate for branching and for massive
             #TODO: should the self.light things be different? But then it is really cofusing
             # if it is the unified property
@@ -475,11 +475,8 @@ class Coral:
             # like have common self.light
             # then have as a property specification for class Massive self.light = self.photosynthesis.massive_light() ????
                   
-            coral.branching_light = CoralOnly().in_spacetime(
-                coral=coral,
-                function=averaged_light_branching,
-                args=(total_branching, coral.surface_area),
-                no_cover_value=self.I0 * np.exp(-self.Kd * self.h)) 
+            coral.branching_light =averaged_light_branching(total_branching, coral.surface_area) # deleted the Coral Only addition, because it anyway does not make sense to calculate light received by a coral, if there is no coral. 
+                
             
         def rep_light_massive():
             
@@ -691,39 +688,28 @@ class Coral:
             f2 = thermal_env()
             self.ptd = f1 * f2
 
-    def PopulationStates(self, dt=1):
-        """Bleaching response following the population dynamics."""  # check the competition for space here
-        # TODO: Check this class; incl. writing tests
-    
+
         
-            """Population dynamics.
-    
-            :param dt: time step [yrs], defaults to one
-            :type dt: float, optional
-            """
-        self.dt = dt
-        
-        def pop_states_t(self):
+    def pop_states_t(self):
+            
             """Population dynamics over time.
     
             :param coral: coral animal
             :type coral: Coral
             """
-            self.pop_states = np.zeros((*RESHAPE.spacetime, 4))
-            for n in range(RESHAPE.time):
-                photosynthesis = np.zeros(RESHAPE.space)
-                photosynthesis[coral.cover > 0.] = self.photo_rate[coral.cover > 0., n]  # TODO": resolve cover here!
-                self.pop_states[:, n, :] = self.pop_states_xy(coral, photosynthesis)
-                self.p0[coral.cover > 0., :] = self.pop_states[coral.cover > 0., n, :]
-    
-        def pop_states_xy(self, ps):
+        self.pop_states = np.zeros((*RESHAPE.spacetime, 4))
+        
+        def pop_states_xy(self, ps, dt=1):
             """Population dynamics over space.
-
+    
+            :param dt: time step [yrs], defaults to one
+            :type dt: float, optional
+            
             :param ps: photosynthetic rate
 
-            :type ps: numpy.ndarray
-            """
-            
+            :type ps: numpy.ndarray """ 
+            self.dt = dt
+        
             # TODO: check where coral.cover is used and think how to remove it from the equation
             p = np.zeros((RESHAPE.space, 4))
             # # calculations
@@ -766,8 +752,14 @@ class Coral:
                     1. - .25 * self.dt * self.r_bleaching * ps[ps <= 0.] * self.Csp )
                 
             return p
-
-       
+        
+        for n in range(RESHAPE.time):
+            photosynthesis = np.zeros(RESHAPE.space)
+            photosynthesis[coral.cover > 0.] = self.photo_rate[coral.cover > 0., n]  # TODO": resolve cover here!
+            self.pop_states[:, n, :] = self.pop_states_xy(photosynthesis)
+            self.p0[coral.cover > 0., :] = self.pop_states[coral.cover > 0., n, :]  # Why do we even have the pop_states, if we say p0 = pop_states, and after dislodgement or spawning we update p0 ?
+        #return self.p0 Do I need return, or it will know?
+      
     def Calcification(self, omega):
         """Calcification rate.
         :param omega: aragonite saturation state
@@ -882,7 +874,221 @@ class Coral:
             # TODO: change the function here or up in the coral to update volume and diameter calculations!   
             Can use formula for new volume - get new diameter with the constants 
 
-    def Dislodgement(self):
+
+    def flow(self, u_current, u_wave, h, peak_period):
+        """Flow micro-environment.
+        
+            :param u_current: current flow velocity [m s-1]
+            :param u_wave: wave flow velocity [m s-1]
+            :param h: water depth [m]
+            :param peak_period: peak wave period [s]
+    
+            :type u_current: float, list, tuple, numpy.ndarray
+            :type u_wave: float, list, tuple, numpy.ndarray
+            :type h: float, list, tuple, numpy.ndarray
+            :type peak_period: float, list, tuple, numpy.ndarray
+            """
+        self.uc = RESHAPE.variable2array(u_current)
+        self.uw = RESHAPE.variable2array(u_wave)
+        self.h = RESHAPE.variable2matrix(h, 'space')
+        self.Tp = RESHAPE.variable2array(peak_period)
+        self.active = False if u_current is None and u_wave is None else True
+
+        @property
+        def uc_matrix(self):
+            """Reshaped current flow velocity."""
+            return RESHAPE.variable2matrix(self.uc, 'space')  
+    
+        @property
+        def uw_matrix(self):
+            """Reshaped wave flow velocity."""
+            return RESHAPE.variable2matrix(self.uw, 'space') 
+               
+        def velocities(self):
+            """Depth-averaged flow velocities.
+
+            :param in_canopy: determine in-canopy flow (or depth-averaged), defaults to True  - So is it in-canopy only, or depth averaged as well somewhow?
+
+            """
+            if self.active:
+                alpha_w = np.ones(self.uw.shape)
+                alpha_c = np.ones(self.uc.shape)
+                if in_canopy:
+                    idx = self.volume > 0
+                    for i in idx:
+                        alpha_w[i] = self.wave_attenuation(
+                            self.dc_rep[i], self.hc[i], self.ac[i],
+                            self.uw[i], self.Tp[i], self.h[i], 'wave'
+                        )
+                        alpha_c[i] = self.wave_attenuation(
+                            self.dc_rep[i], self.hc[i], self.ac[i],
+                            self.uc[i], 1e3, self.h[i], 'current'
+                        )
+                self.ucm = self.wave_current(alpha_w, alpha_c)
+                self.um = self.wave_current()
+            else:
+                self.ucm = 9999 * np.ones(RESHAPE.space) # what happens to um then? Because I need um now only
+                
+                # Should I make it always active?
+                
+                # then I have: 
+                
+             # alpha_w = np.ones(self.uw.shape)
+             # alpha_c = np.ones(self.uc.shape)
+                
+             # coral.um = self.wave_current()
+             
+             # But also, if in-canopy is disabled, I do nod need the wave attenuation
+             # function that depends on coral morphology and calculated drag coefficient,
+             # which is strange not to have for dislodgement calculations
+             
+             # in case we use only the depth-averaged flow, which is um (needed for dislodgement)
+             # it is strange that it is not specified in ELSE: in case in_canopy = False
+             
+             # So what does it calculate then?         
+             
+    
+        def wave_current(self, alpha_w=1, alpha_c=1):
+            """Wave-current interaction.
+    
+            :param alpha_w: wave-attenuation coefficient, defaults to 1
+            :param alpha_c: current-attenuation coefficient, defaults to 1
+    
+            :type alpha_w: float, list, tuple, numpy.ndarray, optional
+            :type alpha_c: float, list, tuple, numpy.ndarray, optional
+    
+            :return: wave-current interaction
+            :rtype: float, numpy.ndarray
+            """
+            
+            # Why don't we put alpha-w and alpha_c as constants as self.constants.alpha_w ?
+            # Or is it recalculated in coupling within the hydrodynamics.py file? Check!
+            
+            # Didn't find it anywhere else, but there is wac calculation below
+            
+            # Or why don't we use the WAC that is calculated below with iterations?
+            
+            return np.sqrt(
+                (alpha_w * self.uw) ** 2 + (alpha_c * self.uc) ** 2 +
+                2 * alpha_w * self.uw * alpha_c * self.uc *
+                np.cos(self.constants.wcAngle)   )
+            # Alternative                                # What is this? Which of the returns is actually returned then by the function????
+            return np.sqrt(
+                (self.constants.alpha_w * self.uw) ** 2 + (self.constants.alpha_c * self.uc) ** 2 +
+                2 * self.constants.alpha_w * self.uw * self.constants.alpha_c * self.uc *
+                np.cos(self.constants.wcAngle)   )
+    
+        @staticmethod
+        def wave_attenuation(constants, diameter, height, distance, velocity, period, depth, wac_type): #why doesn't it just depend on coral? that has height, diam, etc...
+            """Wave-attenuation coefficient.
+    
+            :param diameter: representative coral diameter [m]
+            :param height: coral height [m]
+            :param distance: axial distance [m]
+            :param velocity: flow velocity [m s-1]
+            :param period: wave period [s]
+            :param depth: water depth [m]
+            :param wac_type: type of wave-attenuation coefficient [-]
+    
+            :type diameter: float
+            :type height: float
+            :type distance: float
+            :type velocity: float
+            :type depth: float
+            :type depth: float
+            :type wac_type: str
+            """
+            # TODO: Split this method in one solely focusing on the wave attenuation coefficient;
+            #  and one implementing this method to dynamically determine the drag coefficient.
+            #  Thus, reformat this method as in coral_model_v0.
+            # # input check
+            types = ('current', 'wave')
+            if wac_type not in types:
+                msg = f'WAC-type {wac_type} not in {types}.'
+                raise ValueError(msg)
+    
+            # # function and derivative definitions
+            def function(beta):
+                """Complex-valued function to be solved, where beta is the complex representation of the wave-attenuation
+                coefficient.
+                """
+                # components
+                shear = (8. * above_motion) / (3. * np.pi * shear_length) * (abs(1. - beta) * (1. - beta))
+                drag = (8. * above_motion) / (3. * np.pi * drag_length) * (abs(beta) * beta)
+                inertia = 1j * beta * ((self.constants.Cm * lambda_planar) / (1. - lambda_planar))
+                # combined
+                f = 1j * (beta - 1.) - shear + drag + inertia
+                # output
+                return f
+    
+            def derivative(beta):
+                """Complex-valued derivative to be used to solve the complex-valued function, where beta is the complex
+                representation of the wave-attenuation coefficient.
+                """
+                # components
+                shear = ((1. - beta) ** 2 / abs(1. - beta) - abs(1. - beta)) / shear_length
+                drag = (beta ** 2 / abs(beta) + beta) / drag_length
+                inertia = 1j * (self.constants.Cm * lambda_planar) / (1. - lambda_planar)
+                # combined
+                df = 1j + (8. * above_motion) / (3. * np.pi) * (- shear + drag) + inertia
+                # output
+                return df
+    
+            # # parameter definitions
+            # geometric parameters
+            planar_area = self.planar_area
+            # frontal_area = diameter * height
+            frontal_area = self.dc * self.hc
+            total_area = .5 * distance ** 2  # What is this? 
+            lambda_planar = planar_area / total_area
+            lambda_frontal = frontal_area / total_area
+            shear_length = height / (constants.Cs ** 2)
+            # # calculations
+            wac = 1.
+            if depth > height:
+                # initial iteration values
+                above_flow = velocity
+                drag_coefficient = 1.
+                # iteration
+                for k in range(int(self.constants.maxiter_k)):
+                    drag_length = (2 * self.hc * (1 - lambda_planar)) / (drag_coefficient * lambda_frontal)
+                    above_motion = (above_flow * period) / (2 * np.pi)
+                    if wac_type == 'wave':
+                        # noinspection PyTypeChecker
+                        wac = abs(newton(
+                            function, x0=complex(.1, .1), fprime=derivative,
+                            maxiter=self.constants.maxiter_aw
+                        ))
+                    elif wac_type == 'current':
+                        x = drag_length / shear_length * (self.hc / (depth - self.hc) + 1)
+                        wac = (x - np.sqrt(x)) / (x - 1)
+                    else:
+                        raise ValueError(
+                            f'WAC-type ({wac_type}) not in {types}.'
+                        )
+                    porous_flow = wac * above_flow # I do not have it, if there is no in-canopy flow, right?
+                    constricted_flow = (1 - lambda_planar) / (1 - np.sqrt(
+                        (4 * lambda_planar) / (self.constants.psi * np.pi)
+                    )) * porous_flow
+                    reynolds = (constricted_flow * self.dc) / self.constants.nu
+                    new_drag = 1 + 10 * reynolds ** (-2. / 3)
+                    if abs((new_drag - drag_coefficient) / new_drag) <= self.constants.err:
+                        break
+                    else:
+                        drag_coefficient = float(new_drag)
+                        above_flow = abs(
+                            (1 - self.constants.numericTheta) * above_flow +
+                            self.constants.numericTheta * (
+                                    depth * velocity - self.hc * porous_flow
+                            ) / (depth - self.hc)   )
+
+                    if k == self.constants.maxiter_k:
+                        print(
+                            f'WARNING: maximum number of iterations reached '
+                            f'({constants.maxiter_k})'  )
+            return wac            
+
+    def dislodgement_update((self, survival_coefficient=1):
         """Dislodgement due to storm conditions."""
        
             """Dislodgement check."""
@@ -892,73 +1098,43 @@ class Coral:
             
         # self.constants = constants # but constants are already an attribute of Coral, so I think I do not have to mention it again in the function?
     
-    
-        def update(self, survival_coefficient=1):
-            """Update morphology due to storm damage.
-    
-            :param coral: coral animal
-            :param survival_coefficient: percentage of partial survival, defualts to 1 # - So all of them survive? 
-    
-            :type coral: Coral
-            :type survival_coefficient: float, optional
-            """
-            # # partial dislodgement
-            Dislodgement.partial_dislodgement(self, coral, survival_coefficient)
-            # # update
-            # population states
-            for s in range(4):
-                coral.p0[:, s] *= self.survival
-            # morphology
-            coral.volume *= self.survival
-    
-        def partial_dislodgement(self, coral, survival_coefficient=1.):
+        def partial_dislodgement(self, survival_coefficient=1.):
             """Percentage surviving storm event.
-    
-            :param coral: coral animal
+
             :param survival_coefficient: percentage of partial survival, defualts to 1
-    
-            :type coral: Coral
+
             :type survival_coefficient: float, optional
             """
             # TODO: Rewrite such that the distinction between an array or a float is well build in.
             try:
-                self.survival = np.ones(coral.dc.shape)
+                self.survival = np.ones(self.dc.shape)
             except TypeError:
-                if Dislodgement.dislodgement_criterion(self, coral):
+                if self.dislodgement_criterion():
                     self.survival = survival_coefficient * self.dmt / self.csf
                 else:
                     self.survival = 1.
             else:
-                dislodged = Dislodgement.dislodgement_criterion(self, coral)
+                dislodged = self.dislodgement_criterion()
                 self.survival[dislodged] = survival_coefficient * (
-                        self.dmt[dislodged] / self.csf[dislodged]
-                )
-    
-        def dislodgement_criterion(self, coral):
-            """Dislodgement criterion. Returns boolean (array).
-    
-            :param coral: coral animal
-            :type coral: Coral
-            """
-            self.dislodgement_mechanical_threshold(coral)
-            self.colony_shape_factor(coral)
+                        self.dmt[dislodged] / self.csf[dislodged] )
+            
+        def dislodgement_criterion(self):
+            """Dislodgement criterion. Returns boolean (array)."""
+            self.dislodgement_mechanical_threshold()
+            self.colony_shape_factor()
             return self.dmt <= self.csf
     
-        def dislodgement_mechanical_threshold(self, coral):
-            """Dislodgement Mechanical Threshold.
-    
-            :param coral: coral animal
-            :type coral: Coral
-            """
+        def dislodgement_mechanical_threshold(self):
+            """Dislodgement Mechanical Threshold."""
             # # check input
-            if not hasattr(coral.um, '__iter__'):
-                coral.um = np.array([coral.um])
-            if isinstance(coral.um, (list, tuple)):
-                coral.um = np.array(coral.um)
+            if not hasattr(self.um, '__iter__'):
+                self.um = np.array([self.um])
+            if isinstance(self.um, (list, tuple)):
+                self.um = np.array(self.um)
     
             # # calculations
-            self.dmt = 1e20 * np.ones(coral.um.shape)
-            self.dmt[coral.um > 0] = self.dmt_formula(self.constants, coral.um[coral.um > 0])
+            self.dmt = 1e20 * np.ones(self.um.shape)
+            self.dmt[self.um > 0] = self.dmt_formula(self.constants, self.um[coral.um > 0])
     
         @staticmethod
         def dmt_formula(constants, flow_velocity):
@@ -969,17 +1145,9 @@ class Coral:
             """
             return constants.sigma_t / (constants.rho_w * constants.Cd * flow_velocity ** 2)
     
-        def colony_shape_factor(self, coral):
-            """Colony Shape Factor.
-    
-            :param coral: coral animal
-            :type coral: Coral
-            """
-            self.csf = CoralOnly().in_space(
-                coral=coral,
-                function=self.csf_formula,
-                args=(coral.dc, coral.hc, coral.bc, coral.tc)
-            )
+        def colony_shape_factor(self):
+            """Colony Shape Factor """
+            self.csf = self.csf_formula(self.dc, self.hc, self.bc, self.tc)
     
         @staticmethod
         def csf_formula(dc, hc, bc, tc):
@@ -1009,7 +1177,33 @@ class Coral:
             # colony shape factor
             return 16. / (np.pi * bc ** 3) * integral
 
+"""Update morphology due to storm damage.
+            :param survival_coefficient: percentage of partial survival, defualts to 1 # - So all of them survive? 
+            :type survival_coefficient: float, optional"""
+        # # partial dislodgement
+        dislodgement= partial_dislodgement(self, survival_coefficient)
+        # # update
+        # population states
+        for s in range(4):
+            self.p0[:, s] *= self.survival
+            # morphology
+        self.volume *= self.survival
 
+
+    def recruitment_update(self): # write the recruitment formulas based on space available 
+        """Recruitment dynamics.
+           Addition of volume to the representative coral animal. 
+           1 recruited coral has volume of 1 sexually mature coral (approx. 5cm diameter)
+           In this way, the juvenile survivability, bleaching dynamics and early life-stages are passed.
+           On the other hand, the addition to the population density already includes the known survivability rate
+           of coral until 5cm diameter size, based on literature """
+
+            
+            # addition of volume of 1 sexually-reproducable coral (5 cm diameter) 
+
+         self.p0[:, 0] += self.spawning(self, 'P')
+         self.volume += self.spawning(self, 'V')
+    
 
 class Massive(Coral):
     """ Class of Massive corals. Inherits all the initialisation properties and functions of parent super-class Coral.
@@ -1023,301 +1217,3 @@ class Branching(Coral):
     """ Class of Branching corals. Inherits all the properties of class Coral"""
     def __init__(self):
             super().__init__()            
-            
-
-
-
-class Flow:
-    """Flow micro-environment."""
-
-    def __init__(self, constants, u_current, u_wave, h, peak_period):
-        """
-        :param u_current: current flow velocity [m s-1]
-        :param u_wave: wave flow velocity [m s-1]
-        :param h: water depth [m]
-        :param peak_period: peak wave period [s]
-
-        :type u_current: float, list, tuple, numpy.ndarray
-        :type u_wave: float, list, tuple, numpy.ndarray
-        :type h: float, list, tuple, numpy.ndarray
-        :type peak_period: float, list, tuple, numpy.ndarray
-        """
-        self.uc = RESHAPE.variable2array(u_current)
-        self.uw = RESHAPE.variable2array(u_wave)
-        self.h = RESHAPE.variable2matrix(h, 'space')
-        self.Tp = RESHAPE.variable2array(peak_period)
-        self.active = False if u_current is None and u_wave is None else True
-        self.constants = constants
-
-# =============================================================================
-# =============================================================================
-    @property
-    def uc_matrix(self):
-        """Reshaped current flow velocity."""
-        return RESHAPE.variable2matrix(self.uc, 'space')  
-
-    @property
-    def uw_matrix(self):
-        """Reshaped wave flow velocity."""
-        return RESHAPE.variable2matrix(self.uw, 'space') 
-           
-    def velocities(self, coral):
-        """Depth-averaged flow velocities.
-
-        :param coral: coral animal
-        :param in_canopy: determine in-canopy flow (or depth-averaged), defaults to True  - So is it in-canopy only, or depth averaged as well somewhow?
-
-        :type in_canopy: bool, optional
-        """
-        if self.active:
-            alpha_w = np.ones(self.uw.shape)
-            alpha_c = np.ones(self.uc.shape)
-            if in_canopy:
-                idx = coral.volume > 0
-                for i in idx:
-                    alpha_w[i] = self.wave_attenuation(
-                        coral.dc_rep[i], coral.hc[i], coral.ac[i],
-                        self.uw[i], self.Tp[i], self.h[i], 'wave'
-                    )
-                    alpha_c[i] = self.wave_attenuation(
-                        coral.dc_rep[i], coral.hc[i], coral.ac[i],
-                        self.uc[i], 1e3, self.h[i], 'current'
-                    )
-            coral.ucm = self.wave_current(alpha_w, alpha_c)
-            coral.um = self.wave_current()
-        else:
-            coral.ucm = 9999 * np.ones(RESHAPE.space) # what happens to um then? Because I need um now only
-            
-            # Should I make it always active?
-            
-            # then I have: 
-            
-         # alpha_w = np.ones(self.uw.shape)
-         # alpha_c = np.ones(self.uc.shape)
-            
-         # coral.um = self.wave_current()
-         
-         # But also, if in-canopy is disabled, I do nod need the wave attenuation
-         # function that depends on coral morphology and calculated drag coefficient,
-         # which is strange not to have for dislodgement calculations
-         
-         # in case we use only the depth-averaged flow, which is um (needed for dislodgement)
-         # it is strange that it is not specified in ELSE: in case in_canopy = False
-         
-         # So what does it calculate then?         
-         
-
-    def wave_current(self, alpha_w=1, alpha_c=1):
-        """Wave-current interaction.
-
-        :param alpha_w: wave-attenuation coefficient, defaults to 1
-        :param alpha_c: current-attenuation coefficient, defaults to 1
-
-        :type alpha_w: float, list, tuple, numpy.ndarray, optional
-        :type alpha_c: float, list, tuple, numpy.ndarray, optional
-
-        :return: wave-current interaction
-        :rtype: float, numpy.ndarray
-        """
-        
-        # Why don't we put alpha-w and alpha_c as constants as self.constants.alpha_w ?
-        # Or is it recalculated in coupling within the hydrodynamics.py file? Check!
-        
-        # Didn't find it anywhere else, but there is wac calculation below
-        
-        # Or why don't we use the WAC that is calculated below with iterations?
-        
-        return np.sqrt(
-            (alpha_w * self.uw) ** 2 + (alpha_c * self.uc) ** 2 +
-            2 * alpha_w * self.uw * alpha_c * self.uc *
-            np.cos(self.constants.wcAngle)
-        )
-        # Alternative
-        return np.sqrt(
-            (self.constants.alpha_w * self.uw) ** 2 + (self.constants.alpha_c * self.uc) ** 2 +
-            2 * self.constants.alpha_w * self.uw * self.constants.alpha_c * self.uc *
-            np.cos(self.constants.wcAngle)
-        )
-
-    @staticmethod
-    def wave_attenuation(constants, diameter, height, distance, velocity, period, depth, wac_type): #why doesn't it just depend on coral? that has height, diam, etc...
-        """Wave-attenuation coefficient.
-
-        :param diameter: representative coral diameter [m]
-        :param height: coral height [m]
-        :param distance: axial distance [m]
-        :param velocity: flow velocity [m s-1]
-        :param period: wave period [s]
-        :param depth: water depth [m]
-        :param wac_type: type of wave-attenuation coefficient [-]
-
-        :type diameter: float
-        :type height: float
-        :type distance: float
-        :type velocity: float
-        :type depth: float
-        :type depth: float
-        :type wac_type: str
-        """
-        # TODO: Split this method in one solely focusing on the wave attenuation coefficient;
-        #  and one implementing this method to dynamically determine the drag coefficient.
-        #  Thus, reformat this method as in coral_model_v0.
-        # # input check
-        types = ('current', 'wave')
-        if wac_type not in types:
-            msg = f'WAC-type {wac_type} not in {types}.'
-            raise ValueError(msg)
-
-        # # function and derivative definitions
-        def function(beta):
-            """Complex-valued function to be solved, where beta is the complex representation of the wave-attenuation
-            coefficient.
-            """
-            # components
-            shear = (8. * above_motion) / (3. * np.pi * shear_length) * (abs(1. - beta) * (1. - beta))
-            drag = (8. * above_motion) / (3. * np.pi * drag_length) * (abs(beta) * beta)
-            inertia = 1j * beta * ((constants.Cm * lambda_planar) / (1. - lambda_planar))
-            # combined
-            f = 1j * (beta - 1.) - shear + drag + inertia
-            # output
-            return f
-
-        def derivative(beta):
-            """Complex-valued derivative to be used to solve the complex-valued function, where beta is the complex
-            representation of the wave-attenuation coefficient.
-            """
-            # components
-            shear = ((1. - beta) ** 2 / abs(1. - beta) - abs(1. - beta)) / shear_length
-            drag = (beta ** 2 / abs(beta) + beta) / drag_length
-            inertia = 1j * (constants.Cm * lambda_planar) / (1. - lambda_planar)
-            # combined
-            df = 1j + (8. * above_motion) / (3. * np.pi) * (- shear + drag) + inertia
-            # output
-            return df
-
-        # # parameter definitions
-        # geometric parameters
-        planar_area = .25 * np.pi * diameter ** 2 # TODO: planar area = planar area
-        frontal_area = diameter * height
-        total_area = .5 * distance ** 2
-        lambda_planar = planar_area / total_area
-        lambda_frontal = frontal_area / total_area
-        shear_length = height / (constants.Cs ** 2)
-        # # calculations
-        wac = 1.
-        if depth > height:
-            # initial iteration values
-            above_flow = velocity
-            drag_coefficient = 1.
-            # iteration
-            for k in range(int(constants.maxiter_k)):
-                drag_length = (2 * height * (1 - lambda_planar)) / (drag_coefficient * lambda_frontal)
-                above_motion = (above_flow * period) / (2 * np.pi)
-                if wac_type == 'wave':
-                    # noinspection PyTypeChecker
-                    wac = abs(newton(
-                        function, x0=complex(.1, .1), fprime=derivative,
-                        maxiter=constants.maxiter_aw
-                    ))
-                elif wac_type == 'current':
-                    x = drag_length / shear_length * (height / (depth - height) + 1)
-                    wac = (x - np.sqrt(x)) / (x - 1)
-                else:
-                    raise ValueError(
-                        f'WAC-type ({wac_type}) not in {types}.'
-                    )
-                porous_flow = wac * above_flow # I do not have it, if there is no in-canopy flow, right?
-                constricted_flow = (1 - lambda_planar) / (1 - np.sqrt(
-                    (4 * lambda_planar) / (constants.psi * np.pi)
-                )) * porous_flow
-                reynolds = (constricted_flow * diameter) / constants.nu
-                new_drag = 1 + 10 * reynolds ** (-2. / 3)
-                if abs((new_drag - drag_coefficient) / new_drag) <= constants.err:
-                    break
-                else:
-                    drag_coefficient = float(new_drag)
-                    above_flow = abs(
-                        (1 - constants.numericTheta) * above_flow +
-                        constants.numericTheta * (
-                                depth * velocity - height * porous_flow
-                        ) / (depth - height)
-                    )
-
-                if k == constants.maxiter_k:
-                    print(
-                        f'WARNING: maximum number of iterations reached '
-                        f'({constants.maxiter_k})'
-                    )
-
-        return wac
-
-
-
-
-
-
-class Recruitment:
-    """Recruitment dynamics."""
-    def __init__(self):
-        """Recruitment initialize"""
-        
-        # addition of volume of 1 sexually-reproducable coral (5 cm diameter) 
-
-    def update(self, coral):
-        """Update coral cover / volume after spawning event.
-
-        :param coral: coral animal
-        :type coral: Coral
-        """
-        coral.p0[:, 0] += Recruitment.spawning(self, coral, 'P')
-        coral.volume += Recruitment.spawning(self, coral, 'V')
-
-    def spawning(self, coral, param):
-        """Contribution due to mass coral spawning.
-
-        :param coral: coral animal
-        :param param: parameter type to which the spawning is added
-
-        :type coral: Coral
-        :type param: str
-        """
-        # # input check
-        params = ('P', 'V')
-        if param not in params:
-            msg = f'{param} not in {params}.'
-            raise ValueError(msg)
-
-        # # calculations
-        # potential
-        power = 2 if param == 'P' else 3
-        potential = self.prob_settle * self.no_larvae * self.d_larvae ** power
-        # recruitment
-        averaged_healthy_pop = coral.pop_states[:, -1, 0].mean()
-        # living cover
-        living_cover = RESHAPE.matrix2array(coral.living_cover, 'space')
-
-        recruited = CoralOnly().in_space(
-            coral=coral,
-            function=self.recruited,
-            args=(potential, averaged_healthy_pop, living_cover, coral.cover)
-        )
-
-        # # output
-        return recruited
-
-    @staticmethod
-    def recruited(potential, averaged_healthy_pop, cover_real, cover_potential):
-        """Determination of recruitment.
-
-        :param potential: recruitment potential
-        :param averaged_healthy_pop: model domain averaged healthy population
-        :param cover_real: real coral cover
-        :param cover_potential: potential coral cover
-
-        :type potential: float
-        :type averaged_healthy_pop: float
-        :type cover_real: float
-        :type cover_potential: float
-        """
-        return potential * averaged_healthy_pop * (1 - cover_real / cover_potential)
-    
