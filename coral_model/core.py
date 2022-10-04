@@ -70,6 +70,7 @@ class Coral:
         # > calcification
         self.calc = None
         
+        
         """
            
         # Key = value           ! Default   ! Definition [units]
@@ -414,77 +415,9 @@ class Coral:
         self.bc = cover * self.bc
         self.tc = cover * self.tc
         self.ac = cover * self.ac 
-
-    def Light(self, light_in, lac, depth):
-        """Light micro-environment.
-    
-            :param light_in: incoming light-intensity at the water-air interface [u mol photons m-2 s-1]
-            :param lac: light-attenuation coefficient [m-1]
-            :param depth: water depth [m]
-    
-            :type light_in: float, list, tuple, numpy.ndarray
-            :type lac: float, list, tuple, numpy.ndarray
-            :type depth: float, list, tuple, numpy.ndarray
-            """
-        self.I0 = RESHAPE.variable2matrix(light_in, 'time')
-        self.Kd = RESHAPE.variable2matrix(lac, 'time') 
-        self.h = RESHAPE.variable2matrix(depth, 'space')
-
-        def light_spreading(self):
-            """Spreading of light as function of depth. """
-            return self.constants.theta_max * np.exp(
-                -self.Kd * (self.h - self.hc_matrix + self.tc_matrix)) #If I do not have tc, then update it here too!
-          
-        def rep_light_branching(self,coral):
-                   
-            top = self.planar_area_matrix * self.I0 * np.exp(
-                -self.Kd * (self.h - self.hc_matrix))    
-            
-            # For the rest, according to Kaniewska, 2014 - there is within colony light attenuation
-            # different for branches direction
-            
-            # at the same time, massive corals do not have the branches and much extra SA,
-            # So within colony LAC is not needed for them 
         
+          
             
-            side1 = ((self.surface_area_matrix - self.planar_area_matrix)/2.0) * self.I0*np.exp(
-                -self.Kd*(self.h - self.hc_matrix)) *np.exp(-self.coral_Kd_1*(self.tc_matrix/2.))
-            
-            side2 = ((self.surface_area_matrix - self.planar_area_matrix)/2.0) * self.I0*np.exp(
-                -self.Kd*(self.h - self.hc_matrix)) *np.exp(-self.coral_Kd_2*(self.tc_matrix/2.))
-            
-            
-            total_branching = top + side1 + side2
-            
-    
-    
-            def averaged_light_branching(total_light, surface_area):
-                """Averaged light-intensity."""
-                return total_light / surface_area
-            
-            # Still good and a validation point for average light intensity dispersion 
-            # over the colony (Kaniewska 2014, colony averaged PAR)
-            
-            
-            # update the properties for the coral processes then, where calls for light? Because then will have separate for branching and for massive
-            #TODO: should the self.light things be different? But then it is really cofusing
-            # if it is the unified property
-            
-            # maybe there is the way to sspecify it just per Class Massive and Branching? 
-            
-            # like have common self.light
-            # then have as a property specification for class Massive self.light = self.photosynthesis.massive_light() ????
-                  
-            coral.branching_light =averaged_light_branching(total_branching, coral.surface_area) # deleted the Coral Only addition, because it anyway does not make sense to calculate light received by a coral, if there is no coral. 
-                
-            
-        def rep_light_massive():
-            
-            def averaged_light_massive():
-                evnedf vdefnvkfvio
-                return alvndfvl
-
-                
     def Temperature(self, temperature):
         """
             Thermal micro-environment.
@@ -504,39 +437,37 @@ class Coral:
             Photosynthetic efficiency based on photosynthetic dependencies.
     
             :param light_in: incoming light-intensity at the water-air interface [umol photons m-2 s-1]
-            :param first_year: first year of the model simulation
     
             :type light_in: float, list, tuple, numpy.ndarray
-            :type first_year: bool
             """
         self.I0 = RESHAPE.variable2matrix(light_in, 'time')
             
         self.pld = 1 # can I introduce these self.pld here, or they have to be all moved to the beginning where we call cof coral processes?
         self.ptd = 1 # would it use the functions below, or then I have to call for photo_rate in the end of the function? 
 
-        def photo_rate(self, environment, year):
-            """Photosynthetic efficiency.
-    
-            :param environment: environmental conditions
-            :param year: year of simulation
-    
-            :type environment: Environment
-            :type year: int
-            """
-            # components
-            self.light_dependency('qss') # also light dependency is described below, so should I reshuffle the functions as well?
-            
-            self.thermal_dependency(environment, year)
-    
-            # combined
-            self.photo_rate = self.pld * self.ptd
-    
+
         def light_dependency(self, output):
             """Photosynthetic light dependency.
     
             :param output: type of output
     
             :type output: str
+            
+                
+            Function based on Platt, 1980 to calculate photosynthetic efficiency
+            P_max = set for coral group 
+            Note: With transplantation P_max can change!
+                
+                alpha - characterises photochemical reaction, the slope of the initial part of the P-I curve
+                beta - characterises photoinhibition, the slope of the last decreasing part of the P-I curve 
+                
+            for branching coral beta = 0 
+                
+            Should have 2 modes for coral here, so that: 
+                massive coral alpha = self.constants.alpha (constant value, but Pmax can adjust)
+                branching coral alpha = rETRmax/ik (because I decide to have them with flexible Ik, but 
+                as their photoinhibition beta=0, then rETRmax observed = rETRmax(z))
+        
             """
             
             def photo_acclimation(x_old, param):
@@ -570,28 +501,14 @@ class Coral:
                 msg = f'Only the quasi-steady state solution is currently implemented; use key-word \'qss\'.'
                 raise NotImplementedError(msg)
     
-    
-            """ Function based on Platt, 1980 to calculate photosynthetic efficiency
-                P_max = set for coral group 
-                Note: With transplantation P_max can change!
-                
-                alpha - characterises photochemical reaction, the slope of the initial part of the P-I curve
-                beta - characterises photoinhibition, the slope of the last decreasing part of the P-I curve 
-                
-                for branching coral beta = 0 
-                
-                Should have 2 modes for coral here, so that: 
-                    massive coral alpha = self.constants.alpha (constant value, but Pmax can adjust)
-                    branching coral alpha = rETRmax/ik (because I decide to have them with flexible Ik, but 
-                    as their photoinhibition beta=0, then rETRmax observed = rETRmax(z))
-        
-                """
+
                 
             a = (self.alpha * self.light)/rETR_max_z
                 
             b = (self.phi * self.light)/rETR_max_z   
             
             self.pld = rETR_max_z  * (1.0 - np.exp(-a)) * np.exp(-b)
+            return self.pld
             
     
         def thermal_dependency(self, env, year):
@@ -605,41 +522,8 @@ class Coral:
             """
     
             def thermal_acc():
-                """Thermal-acclimation.""" # can I just remove everything from this if-loop, cause I do not have the tme anymore?
-                # if self.constants.tme:
-                #     if self.first_year:
-                #         env.tmeMMMmin = pd.DataFrame(
-                #             data=pd.concat(
-                #                 [env.temp_mmm['min']] * RESHAPE.space,
-                #                 axis=1
-                #             ).values,
-                #             columns=[np.arange(RESHAPE.space)]
-                #         ) 
-                #         env.tmeMMMmax = pd.DataFrame(
-                #             data=pd.concat(
-                #                 [env.temp_mmm['max']] * RESHAPE.space,
-                #                 axis=1
-                #             ).values,
-                #             columns=[np.arange(RESHAPE.space)]
-                #         ) 
-                #     else:
-                #         env.tmeMMMmin[env.tmeMMM.index == year] += coral.dTc
-                #         env.tmeMMMmax[env.tmeMMm.index == year] += coral.dTc
-    
-                #     mmm_min = env.tmeMMMmin[np.logical_and(
-                #         env.tmeMMM.index < year,
-                #         env.tmeMMM.index >= year - int(self.constants.nn / self.Csp)
-                #     )]
-                #     m_min = mmm_min.mean(axis=0)
-                #     s_min = mmm_min.std(axis=0)
-    
-                #     mmm_max = env.tmeMMMmax[np.logical_and(
-                #         env.tmeMMM.index < year,
-                #         env.tmeMMM.index >= year - int(self.constants.nn / self.Csp)
-                #     )]
-                #     m_max = mmm_max.mean(axis=0)
-                #     s_max = mmm_max.std(axis=0)
-                # else:
+                """Thermal-acclimation.""" # can I just remove everything from this if-loop, cause I do not have the tme anymore
+
                 mmm = env.temp_mmm[np.logical_and(
                         env.temp_mmm.index < year,
                         env.temp_mmm.index >= year - int(self.constants.nn / self.Csp)
@@ -660,14 +544,8 @@ class Coral:
                 response = -(self.temp - self.Tlo) * ((self.temp - self.Tlo) ** 2 - delta_temp ** 2)
                 temp_cr = coral.Tlo - (1 / np.sqrt(3)) * delta_temp
                 try:
-                    # if self.constants.tme:
-                    #     response[self.temp <= temp_cr] = -(
-                    #             (2 / (3 * np.sqrt(3))) * delta_temp[self.temp <= temp_cr] ** 3
-                    #     )
-                    # else:
                     response[coral.temp <= temp_cr] = -(
-                                (2 / (3 * np.sqrt(3))) * delta_temp ** 3
-                        )
+                                (2 / (3 * np.sqrt(3))) * delta_temp ** 3 )
                 except TypeError:
                     if self.temp <= temp_cr:
                         response = (2 / (3 * np.sqrt(3))) * delta_temp ** 3
@@ -687,17 +565,30 @@ class Coral:
             f1 = adapted_temp()
             f2 = thermal_env()
             self.ptd = f1 * f2
+            return self.ptd
 
-
-        
-    def pop_states_t(self):
-            
-            """Population dynamics over time.
+    def photo_rate(self, environment, year):
+        """Photosynthetic efficiency.
     
-            :param coral: coral animal
-            :type coral: Coral
-            """
+            :param environment: environmental conditions
+            :param year: year of simulation
+    
+            :type environment: Environment
+            :type year: int
+        """
+        # components
+        self.light_dependency('qss')            
+        self.thermal_dependency(environment, year)    
+        # combined
+        self.photo_rate = self.pld * self.ptd
+        return self.photo_rate
+
+
+    def pop_states_t(self):
         self.pop_states = np.zeros((*RESHAPE.spacetime, 4))
+            
+        """Population dynamics over time."""
+        
         
         def pop_states_xy(self, ps, dt=1):
             """Population dynamics over space.
@@ -758,7 +649,7 @@ class Coral:
             photosynthesis[coral.cover > 0.] = self.photo_rate[coral.cover > 0., n]  # TODO": resolve cover here!
             self.pop_states[:, n, :] = self.pop_states_xy(photosynthesis)
             self.p0[coral.cover > 0., :] = self.pop_states[coral.cover > 0., n, :]  # Why do we even have the pop_states, if we say p0 = pop_states, and after dislodgement or spawning we update p0 ?
-        #return self.p0 Do I need return, or it will know?
+            return self.p0
       
     def Calcification(self, omega):
         """Calcification rate.
@@ -807,8 +698,7 @@ class Coral:
         else:
             self.calc_sum = RESHAPE.matrix2array(calc_sum, 'space', 'sum')
             self.dt_year = dt_year
-    
-            self.I0 = RESHAPE.variable2matrix(light_in, 'time')
+
             self.vol_increase = 0 # does it mean that it is 0 at the first moment, while we initialise the model?
             
             # Why cannot I just call for self.calc and do self.calc.sum already, instead of puttion it inside here every time? 
@@ -911,41 +801,11 @@ class Coral:
 
             """
             if self.active:
-                alpha_w = np.ones(self.uw.shape)
-                alpha_c = np.ones(self.uc.shape)
-                if in_canopy:
-                    idx = self.volume > 0
-                    for i in idx:
-                        alpha_w[i] = self.wave_attenuation(
-                            self.dc_rep[i], self.hc[i], self.ac[i],
-                            self.uw[i], self.Tp[i], self.h[i], 'wave'
-                        )
-                        alpha_c[i] = self.wave_attenuation(
-                            self.dc_rep[i], self.hc[i], self.ac[i],
-                            self.uc[i], 1e3, self.h[i], 'current'
-                        )
-                self.ucm = self.wave_current(alpha_w, alpha_c)
                 self.um = self.wave_current()
             else:
-                self.ucm = 9999 * np.ones(RESHAPE.space) # what happens to um then? Because I need um now only
+                self.um = 9999 * np.ones(RESHAPE.space) # what happens to um then? Because I need um now only
                 
-                # Should I make it always active?
-                
-                # then I have: 
-                
-             # alpha_w = np.ones(self.uw.shape)
-             # alpha_c = np.ones(self.uc.shape)
-                
-             # coral.um = self.wave_current()
-             
-             # But also, if in-canopy is disabled, I do nod need the wave attenuation
-             # function that depends on coral morphology and calculated drag coefficient,
-             # which is strange not to have for dislodgement calculations
-             
-             # in case we use only the depth-averaged flow, which is um (needed for dislodgement)
-             # it is strange that it is not specified in ELSE: in case in_canopy = False
-             
-             # So what does it calculate then?         
+     
              
     
         def wave_current(self, alpha_w=1, alpha_c=1):
@@ -972,12 +832,7 @@ class Coral:
                 (alpha_w * self.uw) ** 2 + (alpha_c * self.uc) ** 2 +
                 2 * alpha_w * self.uw * alpha_c * self.uc *
                 np.cos(self.constants.wcAngle)   )
-            # Alternative                                # What is this? Which of the returns is actually returned then by the function????
-            return np.sqrt(
-                (self.constants.alpha_w * self.uw) ** 2 + (self.constants.alpha_c * self.uc) ** 2 +
-                2 * self.constants.alpha_w * self.uw * self.constants.alpha_c * self.uc *
-                np.cos(self.constants.wcAngle)   )
-    
+           
         @staticmethod
         def wave_attenuation(constants, diameter, height, distance, velocity, period, depth, wac_type): #why doesn't it just depend on coral? that has height, diam, etc...
             """Wave-attenuation coefficient.
@@ -1210,10 +1065,107 @@ class Massive(Coral):
     Here some class-specific functions can be added. """
     def __init__(self):
             super().__init__()
-            
+    
+    def Light(self, light_in, lac, depth):
+            """Light micro-environment.
+        
+                :param light_in: incoming light-intensity at the water-air interface [u mol photons m-2 s-1]
+                :param lac: light-attenuation coefficient [m-1]
+                :param depth: water depth [m]
+        
+                :type light_in: float, list, tuple, numpy.ndarray
+                :type lac: float, list, tuple, numpy.ndarray
+                :type depth: float, list, tuple, numpy.ndarray
+                """
+            self.I0 = RESHAPE.variable2matrix(light_in, 'time')
+            self.Kd = RESHAPE.variable2matrix(lac, 'time') 
+            self.h = RESHAPE.variable2matrix(depth, 'space')
+    
+            def light_spreading(self):
+                """Spreading of light as function of depth. """
+                return self.constants.theta_max * np.exp(
+                    -self.Kd * (self.h - self.hc_matrix + self.tc_matrix)) #If I do not have tc, then update it here too!
+                
+            def rep_light_massive(self,lac_shading_branching):
+                       
+                top = self.planar_area_matrix * self.I0 * np.exp(
+                    -self.Kd * (self.h - self.hc_matrix))
+                
+                # For the rest, according to Kaniewska, 2014 - there is within colony light attenuation
+                # different for branches direction
+                
+                # at the same time, massive corals do not have the branches and much extra SA,
+                # So within colony LAC is not needed for them 
+                
+                # So I can make them have only 1 "side"
 
+                side = ((self.surface_area_matrix - self.planar_area_matrix) * self.I0*np.exp(
+                    -self.Kd*(self.h - self.hc_matrix)) 
+                
+                TODO:Sides shoud be affected by the light spreading
+                
+                total_massive = (top + side) *np.exp(-lac_shading_branching *(self.hc_matrix)) #defines the shading, inflicted by the presense of branching corals
+                
+            def averaged_light_massive(total_light, surface_area):
+                """Averaged light-intensity."""
+                return total_light / surface_area
+                                
+        self.light = averaged_light_massive(total_massive, self.surface_area) # deleted the Coral Only addition, because it anyway does not make sense to calculate light received by a coral, if there is no coral. 
+                           
+        return self.light
 
 class Branching(Coral):
     """ Class of Branching corals. Inherits all the properties of class Coral"""
     def __init__(self):
-            super().__init__()            
+            super().__init__()  
+ 
+    def Light(self, light_in, lac, depth):
+        """Light micro-environment.
+    
+            :param light_in: incoming light-intensity at the water-air interface [u mol photons m-2 s-1]
+            :param lac: light-attenuation coefficient [m-1]
+            :param depth: water depth [m]
+    
+            :type light_in: float, list, tuple, numpy.ndarray
+            :type lac: float, list, tuple, numpy.ndarray
+            :type depth: float, list, tuple, numpy.ndarray
+            """
+        self.I0 = RESHAPE.variable2matrix(light_in, 'time')
+        self.Kd = RESHAPE.variable2matrix(lac, 'time') 
+        self.h = RESHAPE.variable2matrix(depth, 'space')
+
+        def light_spreading(self):
+            """Spreading of light as function of depth. """
+            return self.constants.theta_max * np.exp(
+                -self.Kd * (self.h - self.hc_matrix + self.tc_matrix)) #If I do not have tc, then update it here too!
+            
+        def rep_light_branching(self):
+                   
+            top = self.planar_area_matrix * self.I0 * np.exp(
+                -self.Kd * (self.h - self.hc_matrix))    
+            
+            # For the rest, according to Kaniewska, 2014 - there is within colony light attenuation
+            # different for branches direction
+            
+            # at the same time, massive corals do not have the branches and much extra SA,
+            # So within colony LAC is not needed for them 
+        
+            
+            side1 = ((self.surface_area_matrix - self.planar_area_matrix)/2.0) * self.I0*np.exp(
+                -self.Kd*(self.h - self.hc_matrix)) *np.exp(-self.coral_Kd_1*(self.tc_matrix/2.))
+            
+            side2 = ((self.surface_area_matrix - self.planar_area_matrix)/2.0) * self.I0*np.exp(
+                -self.Kd*(self.h - self.hc_matrix)) *np.exp(-self.coral_Kd_2*(self.tc_matrix/2.))
+            
+            TODO:Sides shoud be affected by the light spreading
+            
+            total_branching = top + side1 + side2
+            
+        def averaged_light_branching(total_light, surface_area):
+            """Averaged light-intensity."""
+            return total_light / surface_area
+                            
+        self.light = averaged_light_branching(total_branching, self.surface_area) # deleted the Coral Only addition, because it anyway does not make sense to calculate light received by a coral, if there is no coral. 
+                       
+        return self.light
+    

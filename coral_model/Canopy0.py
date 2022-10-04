@@ -157,6 +157,28 @@ class Canopy:
         return dvndkbv d
     
     def spatial_mortality(self):
+        TODO
+        return spatial_mortality
+    
+    def light_competition(self):
+        if Branching.hc > Massive.hc:
+            has to output the light-attenuation coefficient that branching shade on massive (value)
+            if no shade, that coef = 0:
+                else formula
+       return lac_shading_branching 
+            
+    def otput_canopy(self):
+        make it write 1 map file but with layers for massive and branching
+        
+        massive = ncfile.createGroup('Massive')
+        branching = ncfile.createGroup('Branching')
+        total = ncfile.createGroup ('Total_coral')
+        for grp in ncfile.groups.items():
+            print(grp)
+        
+       TODO: should I have the Output writing here or in utils? Probably makes more sense to have it here, because
+       in canopy file the "group" and total outputs will be generated.
+      
         
         
 
