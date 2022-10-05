@@ -804,8 +804,8 @@ class Coral:
                 self.um = self.wave_current()
             else:
                 self.um = 9999 * np.ones(RESHAPE.space) # what happens to um then? Because I need um now only
-                
-     
+            return self.um
+                    
              
     
         def wave_current(self, alpha_w=1, alpha_c=1):
@@ -823,125 +823,12 @@ class Coral:
             
             # Why don't we put alpha-w and alpha_c as constants as self.constants.alpha_w ?
             # Or is it recalculated in coupling within the hydrodynamics.py file? Check!
-            
-            # Didn't find it anywhere else, but there is wac calculation below
-            
-            # Or why don't we use the WAC that is calculated below with iterations?
-            
+          
             return np.sqrt(
                 (alpha_w * self.uw) ** 2 + (alpha_c * self.uc) ** 2 +
                 2 * alpha_w * self.uw * alpha_c * self.uc *
                 np.cos(self.constants.wcAngle)   )
            
-        @staticmethod
-        def wave_attenuation(constants, diameter, height, distance, velocity, period, depth, wac_type): #why doesn't it just depend on coral? that has height, diam, etc...
-            """Wave-attenuation coefficient.
-    
-            :param diameter: representative coral diameter [m]
-            :param height: coral height [m]
-            :param distance: axial distance [m]
-            :param velocity: flow velocity [m s-1]
-            :param period: wave period [s]
-            :param depth: water depth [m]
-            :param wac_type: type of wave-attenuation coefficient [-]
-    
-            :type diameter: float
-            :type height: float
-            :type distance: float
-            :type velocity: float
-            :type depth: float
-            :type depth: float
-            :type wac_type: str
-            """
-            # TODO: Split this method in one solely focusing on the wave attenuation coefficient;
-            #  and one implementing this method to dynamically determine the drag coefficient.
-            #  Thus, reformat this method as in coral_model_v0.
-            # # input check
-            types = ('current', 'wave')
-            if wac_type not in types:
-                msg = f'WAC-type {wac_type} not in {types}.'
-                raise ValueError(msg)
-    
-            # # function and derivative definitions
-            def function(beta):
-                """Complex-valued function to be solved, where beta is the complex representation of the wave-attenuation
-                coefficient.
-                """
-                # components
-                shear = (8. * above_motion) / (3. * np.pi * shear_length) * (abs(1. - beta) * (1. - beta))
-                drag = (8. * above_motion) / (3. * np.pi * drag_length) * (abs(beta) * beta)
-                inertia = 1j * beta * ((self.constants.Cm * lambda_planar) / (1. - lambda_planar))
-                # combined
-                f = 1j * (beta - 1.) - shear + drag + inertia
-                # output
-                return f
-    
-            def derivative(beta):
-                """Complex-valued derivative to be used to solve the complex-valued function, where beta is the complex
-                representation of the wave-attenuation coefficient.
-                """
-                # components
-                shear = ((1. - beta) ** 2 / abs(1. - beta) - abs(1. - beta)) / shear_length
-                drag = (beta ** 2 / abs(beta) + beta) / drag_length
-                inertia = 1j * (self.constants.Cm * lambda_planar) / (1. - lambda_planar)
-                # combined
-                df = 1j + (8. * above_motion) / (3. * np.pi) * (- shear + drag) + inertia
-                # output
-                return df
-    
-            # # parameter definitions
-            # geometric parameters
-            planar_area = self.planar_area
-            # frontal_area = diameter * height
-            frontal_area = self.dc * self.hc
-            total_area = .5 * distance ** 2  # What is this? 
-            lambda_planar = planar_area / total_area
-            lambda_frontal = frontal_area / total_area
-            shear_length = height / (constants.Cs ** 2)
-            # # calculations
-            wac = 1.
-            if depth > height:
-                # initial iteration values
-                above_flow = velocity
-                drag_coefficient = 1.
-                # iteration
-                for k in range(int(self.constants.maxiter_k)):
-                    drag_length = (2 * self.hc * (1 - lambda_planar)) / (drag_coefficient * lambda_frontal)
-                    above_motion = (above_flow * period) / (2 * np.pi)
-                    if wac_type == 'wave':
-                        # noinspection PyTypeChecker
-                        wac = abs(newton(
-                            function, x0=complex(.1, .1), fprime=derivative,
-                            maxiter=self.constants.maxiter_aw
-                        ))
-                    elif wac_type == 'current':
-                        x = drag_length / shear_length * (self.hc / (depth - self.hc) + 1)
-                        wac = (x - np.sqrt(x)) / (x - 1)
-                    else:
-                        raise ValueError(
-                            f'WAC-type ({wac_type}) not in {types}.'
-                        )
-                    porous_flow = wac * above_flow # I do not have it, if there is no in-canopy flow, right?
-                    constricted_flow = (1 - lambda_planar) / (1 - np.sqrt(
-                        (4 * lambda_planar) / (self.constants.psi * np.pi)
-                    )) * porous_flow
-                    reynolds = (constricted_flow * self.dc) / self.constants.nu
-                    new_drag = 1 + 10 * reynolds ** (-2. / 3)
-                    if abs((new_drag - drag_coefficient) / new_drag) <= self.constants.err:
-                        break
-                    else:
-                        drag_coefficient = float(new_drag)
-                        above_flow = abs(
-                            (1 - self.constants.numericTheta) * above_flow +
-                            self.constants.numericTheta * (
-                                    depth * velocity - self.hc * porous_flow
-                            ) / (depth - self.hc)   )
-
-                    if k == self.constants.maxiter_k:
-                        print(
-                            f'WARNING: maximum number of iterations reached '
-                            f'({constants.maxiter_k})'  )
-            return wac            
 
     def dislodgement_update((self, survival_coefficient=1):
         """Dislodgement due to storm conditions."""
@@ -951,8 +838,7 @@ class Coral:
         self.csf = None
         self.survival = None
             
-        # self.constants = constants # but constants are already an attribute of Coral, so I think I do not have to mention it again in the function?
-    
+
         def partial_dislodgement(self, survival_coefficient=1.):
             """Percentage surviving storm event.
 
