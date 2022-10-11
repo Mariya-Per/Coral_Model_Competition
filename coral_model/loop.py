@@ -259,7 +259,7 @@ class Simulation:
         coral.initiate_spatial_morphology(cover)
         
         self.output.initiate_his()
-        self.output.initiate_map(coral)
+        self.output.initiate_map(coral) # Why this command is twice here? Once in the if-loop, and again here
 
         return coral
 

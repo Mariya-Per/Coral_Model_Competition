@@ -72,6 +72,7 @@ class Coral:
         
         
         """
+        Constants, required for the initialisation and computation of coral simulation.
            
         # Key = value           ! Default   ! Definition [units]
         #--------------------------------------------------------------------------------------------------------------------
@@ -290,7 +291,6 @@ class Coral:
         
         SA = self.sa_dc_coef  * (self.dc ** self.sa_dc_exp)
         return SA
-
     
     @property
     def volume(self):
@@ -304,9 +304,9 @@ class Coral:
         :param coral_volume: coral volume [m3]
         :type coral_volume: float, int, list, tuple, np.ndarray
         """
-        self.update_morphology(coral_volume, rf=self.rf, rp=self.rp, rs=self.rs) 
+        self.update_morphology(coral_volume) 
         
-    def update_morphology(self, coral_volume, rf, rp, rs):
+    def update_morphology(self, coral_volume):
         """Update the coral morphology based on updated coral volume and morphological ratios.
 
         :param coral_volume: coral volume [m3]
@@ -320,42 +320,40 @@ class Coral:
         :type rs: float, numpy.ndarray
         """
 
-        def vc2dc(coral_volume, rf, rp):
+        def vc2dc(coral_volume):
             """Coral volume to coral plate diameter."""
-            dc = ((4. * coral_volume) /
-                  (np.pi * rf * rp * (1. + rp - rp ** 2))) ** (1. / 3.)
-            return dc
+            
+            dc = self.vc_dc_coef * (coral_volume**self.vc_dc_exponent) # should update the coral diameter based on the new coral volume, which is calculated below in Morphology function
+            # dc = ((4. * coral_volume) /
+            #       (np.pi * rf * rp * (1. + rp - rp ** 2))) ** (1. / 3.)
+            # return dc
 
-        def vc2hc(coral_volume, rf, rp):
-            """Coral volume to coral height."""
-            hc = ((4. * coral_volume * rf ** 2) / 
-                  (np.pi * rp * (1. + rp - rp ** 2))) ** (1. / 3.)
-            return hc
+        # def vc2hc(coral_volume, rf, rp):
+        #     """Coral volume to coral height."""
+        #     hc = ((4. * coral_volume * rf ** 2) / 
+        #           (np.pi * rp * (1. + rp - rp ** 2))) ** (1. / 3.)
+        #     return hc
 
-        def vc2bc(coral_volume, rf, rp):
-            """Coral volume > diameter of the base."""
-            bc = ((4. * coral_volume * rp ** 2) / 
-                  (np.pi * rf * (1. + rp - rp ** 2))) ** (1. / 3.)
-            return bc
+        # def vc2bc(coral_volume, rf, rp):
+        #     """Coral volume > diameter of the base."""
+        #     bc = ((4. * coral_volume * rp ** 2) / 
+        #           (np.pi * rf * (1. + rp - rp ** 2))) ** (1. / 3.)
+        #     return bc
 
-        def vc2tc(coral_volume, rf, rp):
-            """Coral volume > thickness of the plate."""
-            tc = ((4. * coral_volume * rf ** 2 * rp ** 2) / 
-                  (np.pi * (1. + rp - rp ** 2))) ** (1. / 3.)
-            return tc
+        # def vc2tc(coral_volume, rf, rp):
+        #     """Coral volume > thickness of the plate."""
+        #     tc = ((4. * coral_volume * rf ** 2 * rp ** 2) / 
+        #           (np.pi * (1. + rp - rp ** 2))) ** (1. / 3.)
+        #     return tc
 
-        def vc2ac(coral_volume, rf, rp, rs):
-            """Coral volume > axial distance."""
-            ac = (1. / rs) * ((4. * coral_volume) / 
-                              (np.pi * rf * rp * (1. + rp - rp ** 2))) ** (1. / 3.)
+        # def vc2ac(coral_volume, rf, rp, rs):
+        #     """Coral volume > axial distance."""
+        #     ac = (1. / rs) * ((4. * coral_volume) / 
+        #                       (np.pi * rf * rp * (1. + rp - rp ** 2))) ** (1. / 3.)
             return ac
 
         # # update morphology
-        self.dc = vc2dc(coral_volume, rf, rp)
-        self.hc = vc2hc(coral_volume, rf, rp)
-        self.bc = vc2bc(coral_volume, rf, rp)
-        self.tc = vc2tc(coral_volume, rf, rp)
-        self.ac = vc2ac(coral_volume, rf, rp, rs)
+        self.dc = vc2dc(coral_volume)
 
     @property
     def dc_matrix(self):
@@ -393,28 +391,36 @@ class Coral:
         return RESHAPE.variable2matrix(self.surface_area, 'space')
     
 
-    def initiate_spatial_morphology(self, pop_den):
-        """Initiate the morphology based on the on set of morphological dimensions and the coral cover. This method
+    def initiate_spatial_morphology(self, domain = None):
+        """Initiate the morphology based on the on set of morphological dimensions and the domain. This method
         contains a catch that it can only be used to initiate the morphology, and cannot overwrite existing spatial
         heterogeneous morphology definitions.
 
-        :param cover: custom coral cover definition, defaults to None
-        :type cover: None, numpy.ndarray
+        :param domain: custom domain definition, defaults to None
+        :type domain: None, numpy.ndarray
         """
+        
+        if domain is not None:
+            domain = RESHAPE.variable2array(domain)
+            if not domain.shape[0]==RESHAPE.space:
+                msg = f'Spatial dimension of domain and simulation space does not match: {domain.shape} =/= {RESHAPE.space}.'
+                raise ValueError(msg)
+        else:
+            domain = np.ones(RESHAPE.space) #just makes it the size of the "reshape.space" which in loop.initiate is set to self.hydrodynamics.space
 
         self.p0 = np.array([
-            np.ones,
-            np.zeros(pop_den.shape),
-            np.zeros(pop_den.shape),
-            np.zeros(pop_den.shape),
+            domain,
+            np.zeros(domain.shape),
+            np.zeros(domain.shape),
+            np.zeros(domain.shape),
             ]).transpose()
-        
 
-        self.dc = cover * self.dc #  need to distribute these variables over the whole domain somehow. But now cover is not used, so needs to be a new way
-        self.hc = cover * self.hc
-        self.bc = cover * self.bc
-        self.tc = cover * self.tc
-        self.ac = cover * self.ac 
+        self.dc = domain * self.dc #  need to distribute these variables over the whole domain somehow. But now cover is not used, so needs to be a new way
+        self.hc = domain * self.hc
+        self.bc = domain * self.bc
+        self.tc = domain * self.tc
+        self.ac = domain * self.ac 
+        self.pop_den = doamin * self.pop_den
         
           
             
@@ -588,7 +594,7 @@ class Coral:
         self.pop_states = np.zeros((*RESHAPE.spacetime, 4))
             
         """Population dynamics over time."""
-        
+               
         
         def pop_states_xy(self, ps, dt=1):
             """Population dynamics over space.
@@ -603,30 +609,53 @@ class Coral:
         
             # TODO: check where coral.cover is used and think how to remove it from the equation
             p = np.zeros((RESHAPE.space, 4))
-            # # calculations
-            # growing conditions
-            # > bleached pop.      # ps>0. here represents ps>tsh that is the value of the bleaching treshold light and 1. where 1.0 is a number, not column reference
-            p[ps > 0. , 3] = self.p0[ps > 0. , 3] / (
-                    1 + self.dt * (8. * self.r_recovery * ps[ps > 0.] / 
-                                   self.Csp + self.r_mortality * self.Csp)
-            )
-            # > pale pop.
-            p[ps > 0. , 2] = (self.p0[ps > 0. , 2] + (
-                    8. * self.dt * self.r_recovery * ps[ps > 0. ] / self.Csp
-            ) * p[ps > 0. , 3]) / (1. + self.dt * self.r_recovery * ps[ps > 0.] * self.Csp)
-            # > recovering pop.
-            p[ps > 0. , 1] = (self.p0[ps > 0. , 1] +
-                            self.dt * self.r_recovery * ps[ps > 0. ] * self.Csp * p[ps > 0. , 2]) / (
-                    1. + .5 * self.dt * self.r_recovery * ps[ps > 0. ] * self.Csp
-            )
-            # > healthy pop.
-            a = self.dt * self.r_growth * ps[ps > 0.] * self.Csp / coral.cover[ps > 0.]   #COVERR!
-            b = 1. - self.dt * self.r_growth * ps[ps > 0.] * self.Csp * (
-                    1. - p[ps > 0., 1:].sum(axis=1) / coral.cover[ps > 0.]
-            )
-            c = - (self.p0[ps > 0., 0] + .5 * self.dt * self.r_recovery *
-                   ps[ps > 0.] * self.Csp * p[ps > 0., 1])
-            p[ps > 0., 0] = (-b + np.sqrt(b ** 2 - 4. * a * c)) / (2. * a)
+            
+            # I am writing te equations again myself, as I do not understand where the quadratic solver comes from for the healthy population, e.g.
+            # and the order of placement of equations is reversed
+        
+            #  normal conditions, when Tlo < Tcoral < Thi; so P(I, T) >0 - positive energy budget
+        
+            # Healthy population
+            
+            p[ps > 0., 0] = self.p0[ ps> 0., 0] + self.p0[ps > 0. , 0] * self.r_growth * self.Csp *ps[ps>0.] * self.dt + (
+                0.5 *self.dt * self.Csp * self.r_recovery * ps[ps > 0.] * self.p0[ ps > 0. , 1]) # in growth the (K-Pt) is ommited, as it respresents free space
+            
+            # Recovering population
+            
+            p[ ps >0., 1] = self.p0[ps >0. , 1]- (0.5 *self.dt * self.Csp * self.r_recovery * ps[ps > 0.] * self.p0[ ps > 0. , 1]) + self.dt * self.r_recovery * self.Csp * self.p0[ps > 0. , 2] *ps[ps > 0.]
+            
+            # Population pale
+            
+            p[ps > 0., 2] = self.p0[ps > 0., 2]+ self.dt * (-( self.r_recovery * self.Csp * self.p0[ps > 0. , 2] *ps[ps > 0.]) + self.r_recovery * ps[ps> 0.] * p0[ps>0. , 3]*8.0/self.Csp) 
+            
+            # Population bleached
+            
+            p[ps >0. , 3] = self.p0[ps > 0.,3] - (self.r_recovery * ps[ps> 0.] * p0[ps>0. , 3]*8.0/self.Csp)* self.dt - self.r_mortality* p0[ps>0. , 3]*self.dt
+            
+            # # # calculations
+            # # growing conditions
+            # # > bleached pop.      # ps>0. here represents ps>tsh that is the value of the bleaching treshold light and 1. where 1.0 is a number, not column reference
+            # p[ps > 0. , 3] = self.p0[ps > 0. , 3] / (
+            #         1 + self.dt * (8. * self.r_recovery * ps[ps > 0.] / 
+            #                        self.Csp + self.r_mortality * self.Csp)
+            # )
+            # # > pale pop.
+            # p[ps > 0. , 2] = (self.p0[ps > 0. , 2] + (
+            #         8. * self.dt * self.r_recovery * ps[ps > 0. ] / self.Csp
+            # ) * p[ps > 0. , 3]) / (1. + self.dt * self.r_recovery * ps[ps > 0.] * self.Csp)
+            # # > recovering pop.
+            # p[ps > 0. , 1] = (self.p0[ps > 0. , 1] +
+            #                 self.dt * self.r_recovery * ps[ps > 0. ] * self.Csp * p[ps > 0. , 2]) / (
+            #         1. + .5 * self.dt * self.r_recovery * ps[ps > 0. ] * self.Csp
+            # )
+            # # > healthy pop.
+            # a = self.dt * self.r_growth * ps[ps > 0.] * self.Csp / coral.cover[ps > 0.]   #COVERR!
+            # b = 1. - self.dt * self.r_growth * ps[ps > 0.] * self.Csp * (
+            #         1. - p[ps > 0., 1:].sum(axis=1) / coral.cover[ps > 0.]
+            # )
+            # c = - (self.p0[ps > 0., 0] + .5 * self.dt * self.r_recovery *
+            #        ps[ps > 0.] * self.Csp * p[ps > 0., 1])
+            # p[ps > 0., 0] = (-b + np.sqrt(b ** 2 - 4. * a * c)) / (2. * a)
     
             # bleaching conditions
             # > healthy pop.
@@ -644,12 +673,23 @@ class Coral:
                 
             return p
         
+        # for n in range(RESHAPE.time):
+        #     photosynthesis = np.zeros(RESHAPE.space)
+        #     photosynthesis[coral.cover > 0.] = self.photo_rate[coral.cover > 0., n]  # TODO": resolve cover here!
+        #     self.pop_states[:, n, :] = self.pop_states_xy(photosynthesis)
+        #     self.p0[coral.cover > 0., :] = self.pop_states[coral.cover > 0., n, :]  
+        #     return self.p0
+        
+        # I removed cover from here, beacause it was setting the statement to calculate only if there is coral cover present.
+        # But if there is no cover whatsovere, then nothing can photosynthetise anyway, as nothing exists!
+        
         for n in range(RESHAPE.time):
             photosynthesis = np.zeros(RESHAPE.space)
-            photosynthesis[coral.cover > 0.] = self.photo_rate[coral.cover > 0., n]  # TODO": resolve cover here!
+            photosynthesis = self.photo_rate
             self.pop_states[:, n, :] = self.pop_states_xy(photosynthesis)
-            self.p0[coral.cover > 0., :] = self.pop_states[coral.cover > 0., n, :]  # Why do we even have the pop_states, if we say p0 = pop_states, and after dislodgement or spawning we update p0 ?
+            self.p0 = self.pop_states
             return self.p0
+    
       
     def Calcification(self, omega):
         """Calcification rate.
@@ -702,54 +742,18 @@ class Coral:
             self.vol_increase = 0 # does it mean that it is 0 at the first moment, while we initialise the model?
             
             # Why cannot I just call for self.calc and do self.calc.sum already, instead of puttion it inside here every time? 
-    
-        @staticmethod
-        def __coral_object_checker(coral): # do I really need it? we do it for coral only, inside the Coral class. If there will be seagrass, it will have different class, for instance
-            """Check the suitability of the coral-object for the morphological development.
-    
-            :param coral: coral animal
-            :type coral: Coral
-            """
-            # coral must be of type Coral
-            if not isinstance(coral, Coral):
-                msg = f'The optimal ratios are set using the Coral-object, {type(coral)} is given.'
-                raise TypeError(msg)
-    
-            # coral must have light and flow condition attributes
-            if not hasattr(coral, 'light') and not hasattr(coral, 'ucm'):
-                msg = f'The optimal ratios are determined based on the coral\'s light and flow conditions; ' \
-                      f'none are provided.'
-                raise AttributeError(msg)
                 
-        def delta_volume(self, coral):
+        def delta_volume(self):
             """
             :param coral: coral object
             :type coral: Coral
             """
-            self.vol_increase = self.calc_sum * self.dt_year /self.rho_c * coral.surface_area    
+            self.vol_increase = self.calc_sum * self.dt_year /self.rho_c * self.surface_area    
         
             return self.vol_increase
+
     
-        def ratio_update(self, coral, ratio):
-            """
-            :param coral: coral object
-            :param ratio: morphological ratio to update
-    
-            :type coral: Coral
-            :type ratio: str
-            """
-    
-            # calculations
-            self.delta_volume(coral)
-    
-            # optimal ratio
-            setattr(self, f'{ratio}_optimal', coral)
-    
-            # update morphological ratio
-            if hasattr(self, f'{ratio}_optimal') and hasattr(coral, ratio):
-                return mass_balance(getattr(coral, ratio), getattr(self, f'{ratio}_optimal'))
-    
-        def update(self, coral):
+        def update(self):
             """Update morphology.
     
             :param coral: coral animal
@@ -757,10 +761,10 @@ class Coral:
             """
             # # calculations
             # updated volume
-            volume = coral.volume + self.vol_increase
+            volume = self.volume + self.vol_increase
     
             # update coral morphology
-            self.update_morphology(volume, *ratios) 
+            self.update_morphology(volume) 
             # TODO: change the function here or up in the coral to update volume and diameter calculations!   
             Can use formula for new volume - get new diameter with the constants 
 
