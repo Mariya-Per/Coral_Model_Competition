@@ -178,6 +178,192 @@ class Canopy:
         
        TODO: should I have the Output writing here or in utils? Probably makes more sense to have it here, because
        in canopy file the "group" and total outputs will be generated.
+       
+        def initiate_map(self, coral):
+        """Initiate mapping output file in which annual output covering the whole model domain is stored.
+
+        :param coral: coral animal
+        :type coral: Coral
+        """
+        if self._map_output is not None and any(self._map_output.values()):
+            self._map_data = Dataset(self.file_name_map, 'w', format='NETCDF4')
+            self._map_data.description = 'Mapped simulation data of the CoralCompetitionModel.'
+
+            # dimensions
+            self._map_data.createDimension('time', None)
+            self._map_data.createDimension('nmesh2d_face', self.space)
+
+            # variables
+            t = self._map_data.createVariable('time', int, ('time',))
+            t.long_name = 'year'
+            t.units = 'years since 0 B.C.'
+
+            x = self._map_data.createVariable('nmesh2d_x', 'f8', ('nmesh2d_face',))
+            x.long_name = 'x-coordinate'
+            x.units = 'm'
+
+            y = self._map_data.createVariable('nmesh2d_y', 'f8', ('nmesh2d_face',))
+            y.long_name = 'y-coordinate'
+            y.units = 'm'
+
+            t[:] = self.first_year
+            x[:] = self.xy_coordinates[:, 0]
+            y[:] = self.xy_coordinates[:, 1]
+            
+            # groups
+            grp1 = ncfile.createGroup('Massive')
+            grp2 = ncfile.createGroup('Branching')
+            grp3 = ncfile.createGroup ('Total_coral')
+            for grp in ncfile.groups.items():
+                print(grp)
+            
+
+            # initial conditions
+            if self._map_output['lme']:
+                light_set = self._map_data.createVariable('Iz', 'f8', ('time', 'nmesh2d_face'))
+                light_set.long_name = 'annual mean representative light-intensity'
+                light_set.units = 'micro-mol photons m-2 s-1'
+                light_set[:, :] = 0
+            if self._map_output['fme']:
+                flow_set = self._map_data.createVariable('ucm', 'f8', ('time', 'nmesh2d_face'))
+                flow_set.long_name = 'annual mean in-canopy flow'
+                flow_set.units = 'm s-1'
+                flow_set[:, :] = 0
+            if self._map_output['tme']:
+                temp_set = self._map_data.createVariable('Tc', 'f8', ('time', 'nmesh2d_face'))
+                temp_set.long_name = 'annual mean coral temperature'
+                temp_set.units = 'K'
+                temp_set[:, :] = 0
+
+                low_temp_set = self._map_data.createVariable('Tlo', 'f8', ('time', 'nmesh2d_face'))
+                low_temp_set.long_name = 'annual mean lower thermal limit'
+                low_temp_set.units = 'K'
+                low_temp_set[:, :] = 0
+
+                high_temp_set = self._map_data.createVariable('Thi', 'f8', ('time', 'nmesh2d_face'))
+                high_temp_set.long_name = 'annual mean upper thermal limit'
+                high_temp_set.units = 'K'
+                high_temp_set[:, :] = 0
+            if self._map_output['pd']:
+                pd_set = self._map_data.createVariable('PD', 'f8', ('time', 'nmesh2d_face'))
+                pd_set.long_name = 'annual sum photosynthetic rate'
+                pd_set.units = '-'
+                pd_set[:, :] = 0
+            if self._map_output['ps']:
+                pt_set = self._map_data.createVariable('PT', 'f8', ('time', 'nmesh2d_face'))
+                pt_set.long_name = 'total living coral population at the end of the year'
+                pt_set.units = '-'
+                pt_set[:, :] = coral.living_cover
+
+                ph_set = self._map_data.createVariable('PH', 'f8', ('time', 'nmesh2d_face'))
+                ph_set.long_name = 'healthy coral population at the end of the year'
+                ph_set.units = '-'
+                ph_set[:, :] = coral.living_cover
+
+                pr_set = self._map_data.createVariable('PR', 'f8', ('time', 'nmesh2d_face'))
+                pr_set.long_name = 'recovering coral population at the end of the year'
+                pr_set.units = '-'
+                pr_set[:, :] = 0
+
+                pp_set = self._map_data.createVariable('PP', 'f8', ('time', 'nmesh2d_face'))
+                pp_set.long_name = 'pale coral population at the end of the year'
+                pp_set.units = '-'
+                pp_set[:, :] = 0
+
+                pb_set = self._map_data.createVariable('PB', 'f8', ('time', 'nmesh2d_face'))
+                pb_set.long_name = 'bleached coral population at the end of the year'
+                pb_set.units = '-'
+                pb_set[:, :] = 0
+            if self._map_output['calc']:
+                calc_set = self._map_data.createVariable('calc', 'f8', ('time', 'nmesh2d_face'))
+                calc_set.long_name = 'annual sum calcification rate'
+                calc_set.units = 'kg m-2 yr-1'
+                calc_set[:, :] = 0
+            if self._map_output['md']:
+                dc_set = self._map_data.createVariable('dc', 'f8', ('time', 'nmesh2d_face'))
+                dc_set.long_name = 'coral plate diameter'
+                dc_set.units = 'm'
+                dc_set[0, :] = coral.dc
+
+                hc_set = self._map_data.createVariable('hc', 'f8', ('time', 'nmesh2d_face'))
+                hc_set.long_name = 'coral height'
+                hc_set.units = 'm'
+                hc_set[0, :] = coral.hc
+
+                bc_set = self._map_data.createVariable('bc', 'f8', ('time', 'nmesh2d_face'))
+                bc_set.long_name = 'coral base diameter'
+                bc_set.units = 'm'
+                bc_set[0, :] = coral.bc
+
+                tc_set = self._map_data.createVariable('tc', 'f8', ('time', 'nmesh2d_face'))
+                tc_set.long_name = 'coral plate thickness'
+                tc_set.units = 'm'
+                tc_set[0, :] = coral.tc
+
+                ac_set = self._map_data.createVariable('ac', 'f8', ('time', 'nmesh2d_face'))
+                ac_set.long_name = 'coral axial distance'
+                ac_set.units = 'm'
+                ac_set[0, :] = coral.ac
+                
+                pa_set = self._map_data.createVariable('PA', 'f8', ('time', 'nmesh2d_face'))
+                pa_set.long_name = 'planar area'
+                pa_set.units = 'm2'
+                pa_set[0, :] = coral.planar_area     
+                
+                SA_set = self._map_data.createVariable('SA', 'f8', ('time', 'nmesh2d_face'))
+                SA_set.long_name = 'surface area'
+                SA_set.units = 'm2'
+                SA_set[0, :] = coral.surface_area
+
+                vc_set = self._map_data.createVariable('Vc', 'f8', ('time', 'nmesh2d_face'))
+                vc_set.long_name = 'coral volume'
+                vc_set.units = 'm3'
+                vc_set[0, :] = coral.volume
+            self._map_data.close()
+
+    def update_map(self, coral, year):
+        """Write data as annual output covering the whole model domain.
+
+        :param coral: coral animal
+        :param year: simulation year
+
+        :type coral: Coral
+        :type year: int
+        """
+        if self._map_output is not None and any(self._map_output.values()):
+            self._map_data = Dataset(self.file_name_map, mode='a')
+
+            i = int(year - self.first_year)
+            self._map_data['time'][i] = year
+            if self._map_output['lme']:
+                self._map_data['Iz'][-1, :] = coral.light[:, -1]
+            if self._map_output['fme']:
+                self._map_data['ucm'][-1, :] = coral.ucm
+            if self._map_output['tme']:
+                self._map_data['Tc'][-1, :] = coral.temp[:, -1]
+                self._map_data['Tlo'][-1, :] = coral.Tlo if len(DataReshape.variable2array(coral.Tlo)) > 1 else coral.Tlo * np.ones(self.space)
+                self._map_data['Thi'][-1, :] = coral.Thi if len(DataReshape.variable2array(coral.Thi)) > 1 else coral.Thi * np.ones(self.space)
+            if self._map_output['pd']:
+                self._map_data['PD'][-1, :] = coral.photo_rate.mean(axis=1)
+            if self._map_output['ps']:
+                self._map_data['PT'][-1, :] = coral.pop_states[:, -1, :].sum(axis=1)
+                self._map_data['PH'][-1, :] = coral.pop_states[:, -1, 0]
+                self._map_data['PR'][-1, :] = coral.pop_states[:, -1, 1]
+                self._map_data['PP'][-1, :] = coral.pop_states[:, -1, 2]
+                self._map_data['PB'][-1, :] = coral.pop_states[:, -1, 3]
+            if self._map_output['calc']:
+                self._map_data['calc'][-1, :] = coral.calc.sum(axis=1)
+            if self._map_output['md']:
+                self._map_data['dc'][-1, :] = coral.dc
+                self._map_data['hc'][-1, :] = coral.hc
+                self._map_data['bc'][-1, :] = coral.bc
+                self._map_data['tc'][-1, :] = coral.tc
+                self._map_data['ac'][-1, :] = coral.ac
+                self._map_data['PA'][-1, :] = coral.planar_area
+                self._map_data['SA'][-1, :] = coral.surface_area
+                self._map_data['Vc'][-1, :] = coral.volume
+
+            self._map_data.close()
       
         
         

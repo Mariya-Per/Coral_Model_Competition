@@ -425,6 +425,9 @@ class Output:
             t[:] = self.first_year
             x[:] = self.xy_coordinates[:, 0]
             y[:] = self.xy_coordinates[:, 1]
+            
+            # groups
+            
 
             # initial conditions
             if self._map_output['lme']:
